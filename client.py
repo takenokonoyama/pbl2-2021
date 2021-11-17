@@ -36,19 +36,27 @@ def GET_req_all(s, f, ts):
 
 # GET要求(PARTIAL)
 def GET_req_part(s, f, ts, sB, eB):
-    key = pbl2.genkey(ts)
+    key = pbl2.genkey(ts) # keyの作成
     msg = f'GET {f} {key} PARTIAL {sB} {eB}\n' # 要求メッセージ
     s.send(msg.encode())
 
 # REP要求
 def REP_req(s, f, ts):
-    key = pbl2.genkey(ts) 
-    repkey_out = pbl2.repkey(key, f)
+    key = pbl2.genkey(ts) # keyの作成
+    repkey_out = pbl2.repkey(key, rec_file_name) # repkeyの作成
     msg = f'REP {f} {repkey_out}\n' # 要求メッセージ
     s.send(msg.encode())
+
+# 応答の受け取り
+def rec_res(s):
+    rec_str = s.recv(BUFSIZE).decode()
+    print('received response')
+    print(rec_str)
 
 if __name__ == '__main__':
     client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
     client_socket.connect((server_name, server_port))  # サーバのソケットに接続する
+    
+    sever_file_name = 'aaaa' # サーバー側にあるファイル名(書き換える必要あり)
 
-    client_socket.close()
+    client_socket.close() # ソケットを閉じる
