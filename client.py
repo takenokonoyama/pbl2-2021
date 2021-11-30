@@ -13,6 +13,7 @@ server_port =  int(sys.argv[3]) # サーバのポート
 server_file_name = sys.argv[4] # ファイル名
 token_str = sys.argv[5] # トークン文字列
 rec_file_name = 'received_data.dat' # 受け取ったデータを書き込むファイル
+
 # SIZE要求
 def SIZE_req(soc, file_name):
     msg = f'SIZE {file_name}\n' # 要求メッセージ
@@ -67,44 +68,44 @@ def receive_server_file(soc):
 
 if __name__ == '__main__':
     
-    print('server_name:',server_name)
-    print('server_post:',server_port)
+    print('server_name:',server_name) # サーバ名
+    print('server_port:',server_port) # サーバポート番号 
 
     print()
-    
-    # SIZE 要求 
+
+    # SIZE 
     client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
     client_socket.connect((server_name, server_port))  # サーバのソケットに接続する
-    SIZE_req(client_socket, server_file_name)
-    rec_res(client_socket)
-    client_socket.close()
+    SIZE_req(client_socket, server_file_name) # SIZE要求
+    rec_res(client_socket) # 応答受け取り
+    client_socket.close() # ソケットを閉じる
     
     print()
 
-    # GET(ALL) 要求
+    # GET(ALL)
     # 要求を2つ以上行う場合、ソケットをもう一度作る必要がある
     client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
     client_socket.connect((server_name, server_port))  # サーバのソケットに接続する
-    GET_req_all(client_socket, server_file_name, token_str)
-    rec_res(client_socket)
+    GET_req_all(client_socket, server_file_name, token_str) # GET(ALL)要求
+    rec_res(client_socket) # 応答受け取り
     receive_server_file(client_socket) # ファイルダウンロード
-    client_socket.close()
+    client_socket.close() # ソケットを閉じる
 
     print()
 
-    # GET(PARTIAL) 要求
+    # GET(PARTIAL)
     # client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
     # client_socket.connect((server_name, server_port))  # サーバのソケットに接続する
-    # GET_req_part(client_socket, server_file_name, token_str, 0, 10)
-    # rec_res(client_socket)
+    # GET_req_part(client_socket, server_file_name, token_str, 0, 10) # GET(PARTIAL)要求
+    # rec_res(client_socket) # 応答受け取り
     # receive_server_file(client_socket) # ファイルダウンロード
     # client_socket.close()
 
     print()
 
-    # REP要求
+    # REP
     client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
     client_socket.connect((server_name, server_port))  # サーバのソケットに接続する
-    REP_req(client_socket, server_file_name, token_str)
-    rec_res(client_socket)
+    REP_req(client_socket, server_file_name, token_str) # REP要求
+    rec_res(client_socket) # 応答受け取り
     client_socket.close() # ソケットを閉じる
