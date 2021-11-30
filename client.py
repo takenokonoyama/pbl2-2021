@@ -18,7 +18,6 @@ def interact_with_server(soc):
             if len(data) <= 0:  # 受信したデータがゼロなら、相手からの送信は全て終了
                 break
             f.write(data)  # 受け取ったデータをファイルに書き込む
-    soc.close()  # 最後にソケットをクローズ
 
 # SIZE要求
 def SIZE_req(soc, file_name):
@@ -41,7 +40,7 @@ def GET_req_part(soc,file_name,token_str,sB, eB):
     print('request GET PARTIAL')
 
 # REP要求
-def REP_req(soc,file_name, token_str):
+def REP_req(soc, file_name, token_str):
     key = pbl2.genkey(token_str) # keyの作成
     repkey_out = pbl2.repkey(key, rec_file_name) # repkeyの作成
     msg = f'REP {file_name} {repkey_out}\n' # 要求メッセージ
@@ -66,7 +65,7 @@ if __name__ == '__main__':
     server_name = sys.argv[2] # サーバのホスト名
     server_port =  int(sys.argv[3]) # サーバのポート
     server_file_name = sys.argv[4] # ファイル名
-    token_name = sys.argv[5] # トークン文字列
+    token_str = sys.argv[5] # トークン文字列
     rec_file_name = 'received_data.dat' # 受け取ったデータを書き込むファイル
     
     print(server_name)
@@ -76,7 +75,16 @@ if __name__ == '__main__':
     client_socket.connect((server_name, server_port))  # サーバのソケットに接続する
     
     # SIZE 要求 
-    SIZE_req(client_socket, server_file_name)
-    rec_res(client_socket)
+    # SIZE_req(client_socket, server_file_name)
+    # rec_res(client_socket)
+
+    # GET(ALl) 要求
+    # GET_req_all(client_socket, server_file_name, token_str)
+    # rec_res(client_socket)
+    # interact_with_server(client_socket) # ファイルダウンロード
     
+    # REP要求
+    REP_req(client_socket, server_file_name, token_str)
+    rec_res(client_socket)
+
     client_socket.close() # ソケットを閉じる
