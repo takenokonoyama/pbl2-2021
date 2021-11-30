@@ -7,12 +7,6 @@ import sys
 import pbl2
 
 BUFSIZE = 1024 # 受け取る最大のファイルサイズ
-client_name = sys.argv[1]  # サーバのホスト名あるいはIPアドレスを表す文字列
-server_name = sys.argv[2]
-server_port =  int(sys.argv[3]) # サーバのポート
-server_file_name = sys.argv[4] #ファイル名
-token_name = sys.argv[5] #トークン文字列
-rec_file_name = 'received_data.dat' # 受け取ったデータを書き込むファイル
 
 # serverからのfileの受け取り
 def interact_with_server(soc):
@@ -68,9 +62,20 @@ def rec_res(soc):
     print(rec_str)
 
 if __name__ == '__main__':
+    client_name = sys.argv[1]  # クライアントのホスト名あるいはIPアドレスを表す文字列
+    server_name = sys.argv[2] # サーバのホスト名
+    server_port =  int(sys.argv[3]) # サーバのポート
+    server_file_name = sys.argv[4] # ファイル名
+    token_name = sys.argv[5] # トークン文字列
+    rec_file_name = 'received_data.dat' # 受け取ったデータを書き込むファイル
+    
+    print(server_name)
+    print(server_port)
+
     client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
     client_socket.connect((server_name, server_port))  # サーバのソケットに接続する
-
+    
+    # SIZE 要求 
     SIZE_req(client_socket, server_file_name)
     rec_res(client_socket)
     
