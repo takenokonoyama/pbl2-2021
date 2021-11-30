@@ -70,6 +70,8 @@ if __name__ == '__main__':
     print('server_name:',server_name)
     print('server_post:',server_port)
 
+    print()
+    
     # SIZE 要求 
     client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
     client_socket.connect((server_name, server_port))  # サーバのソケットに接続する
