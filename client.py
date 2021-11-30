@@ -7,56 +7,71 @@ import sys
 import pbl2
 
 BUFSIZE = 1024 # 受け取る最大のファイルサイズ
-server_name = sys.argv[1]  # サーバのホスト名あるいはIPアドレスを表す文字列
-server_port =  int(sys.argv[2]) # サーバのポート
+client_name = sys.argv[1]  # サーバのホスト名あるいはIPアドレスを表す文字列
+server_name = sys.argv[2]
+server_port =  int(sys.argv[3]) # サーバのポート
+server_file_name = sys.argv[4] #ファイル名
+token_name = sys.argv[5] #トークン文字列
 rec_file_name = 'received_data.dat' # 受け取ったデータを書き込むファイル
 
-# serverとのやり取り
-def interact_with_server(s):
+# serverからのfileの受け取り
+def interact_with_server(soc):
     # 書き込み用ファイルをオープンして処理
     #   ファイル絡みの例外処理とクローズの処理は書く必要がありません
     with open(rec_file_name, 'wb') as f: # 'wb' は「バイナリファイルを書き込みモードで」という意味
         while True:
-            data = s.recv(BUFSIZE)   # BUFSIZEバイトずつ受信
+            data = soc.recv(BUFSIZE)   # BUFSIZEバイトずつ受信
             if len(data) <= 0:  # 受信したデータがゼロなら、相手からの送信は全て終了
                 break
             f.write(data)  # 受け取ったデータをファイルに書き込む
-    s.close()  # 最後にソケットをクローズ
+    soc.close()  # 最後にソケットをクローズ
 
 # SIZE要求
-def SIZE_req(s, f):
-    msg = f'SIZE {f}\n' # 要求メッセージ
-    s.send(msg.encode())
+def SIZE_req(soc, file_name):
+    msg = f'SIZE {file_name}\n' # 要求メッセージ
+    soc.send(msg.encode())
+    print('request SIZE')
 
 # GET要求(ALL)
-def GET_req_all(s, f, ts):
-    key = pbl2.genkey(ts)
-    msg = f'GET {f} {key} ALL\n' # 要求メッセージ
-    s.send(msg.encode())
+def GET_req_all(soc, file_name,token_str):
+    key = pbl2.genkey(token_str)
+    msg = f'GET {file_name} {key} ALL\n' # 要求メッセージ
+    soc.send(msg.encode())
+    print('request GET ALL')
 
 # GET要求(PARTIAL)
-def GET_req_part(s, f, ts, sB, eB):
-    key = pbl2.genkey(ts) # keyの作成
-    msg = f'GET {f} {key} PARTIAL {sB} {eB}\n' # 要求メッセージ
-    s.send(msg.encode())
+def GET_req_part(soc,file_name,token_str,sB, eB):
+    key = pbl2.genkey(token_str) # keyの作成
+    msg = f'GET {file_name} {key} PARTIAL {sB} {eB}\n' # 要求メッセージ
+    soc.send(msg.encode())
+    print('request GET PARTIAL')
 
 # REP要求
-def REP_req(s, f, ts):
-    key = pbl2.genkey(ts) # keyの作成
+def REP_req(soc,file_name, token_str):
+    key = pbl2.genkey(token_str) # keyの作成
     repkey_out = pbl2.repkey(key, rec_file_name) # repkeyの作成
-    msg = f'REP {f} {repkey_out}\n' # 要求メッセージ
-    s.send(msg.encode())
+    msg = f'REP {file_name} {repkey_out}\n' # 要求メッセージ
+    soc.send(msg.encode())
+    print('request REP')
 
 # 応答の受け取り
-def rec_res(s):
-    rec_str = s.recv(BUFSIZE).decode()
+def rec_res(soc):
+    # 応答コードの受け取り
+    recv_bytearray = bytearray() # 応答コードのバイト列を受け取る配列
+    while True:
+        b = soc.recv(1)[0]
+        if(bytes([b]) == b'\n'):
+            rec_str = recv_bytearray.decode()
+            break
+        recv_bytearray.append(b)
     print('received response')
     print(rec_str)
 
 if __name__ == '__main__':
     client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
     client_socket.connect((server_name, server_port))  # サーバのソケットに接続する
-    
-    sever_file_name = 'aaaa' # サーバー側にあるファイル名(書き換える必要あり)
 
+    SIZE_req(client_socket, server_file_name)
+    rec_res(client_socket)
+    
     client_socket.close() # ソケットを閉じる
