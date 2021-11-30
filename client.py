@@ -74,16 +74,28 @@ if __name__ == '__main__':
     client_socket.connect((server_name, server_port))  # サーバのソケットに接続する
     
     # SIZE 要求 
-    # SIZE_req(client_socket, server_file_name)
-    # rec_res(client_socket)
+    SIZE_req(client_socket, server_file_name)
+    rec_res(client_socket)
+    client_socket.close()
+    
+    print()
 
+    # 要求を2つ以上行う場合、ソケットをもうもう一度作る必要がある
+    client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
+    client_socket.connect((server_name, server_port))  # サーバのソケットに接続する
+    
     # GET(ALl) 要求
     GET_req_all(client_socket, server_file_name, token_str)
     rec_res(client_socket)
     receive_server_file(client_socket) # ファイルダウンロード
     
-    # REP要求
-    # REP_req(client_socket, server_file_name, token_str)
-    # rec_res(client_socket)
+    print()
 
+    client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
+    client_socket.connect((server_name, server_port))  # サーバのソケットに接続する
+    
+    # REP要求
+    REP_req(client_socket, server_file_name, token_str)
+    rec_res(client_socket)
+    
     client_socket.close() # ソケットを閉じる
