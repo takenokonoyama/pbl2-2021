@@ -7,18 +7,12 @@ import sys
 import pbl2
 
 BUFSIZE = 1024 # 受け取る最大のファイルサイズ
-
-# serverからのfileの受け取り
-def interact_with_server(soc):
-    # 書き込み用ファイルをオープンして処理
-    #   ファイル絡みの例外処理とクローズの処理は書く必要がありません
-    with open(rec_file_name, 'wb') as f: # 'wb' は「バイナリファイルを書き込みモードで」という意味
-        while True:
-            data = soc.recv(BUFSIZE)   # BUFSIZEバイトずつ受信
-            if len(data) <= 0:  # 受信したデータがゼロなら、相手からの送信は全て終了
-                break
-            f.write(data)  # 受け取ったデータをファイルに書き込む
-
+client_name = sys.argv[1]  # クライアントのホスト名あるいはIPアドレスを表す文字列
+server_name = sys.argv[2] # サーバのホスト名
+server_port =  int(sys.argv[3]) # サーバのポート
+server_file_name = sys.argv[4] # ファイル名
+token_str = sys.argv[5] # トークン文字列
+rec_file_name = 'received_data.dat' # 受け取ったデータを書き込むファイル
 # SIZE要求
 def SIZE_req(soc, file_name):
     msg = f'SIZE {file_name}\n' # 要求メッセージ
@@ -60,13 +54,18 @@ def rec_res(soc):
     print('received response')
     print(rec_str)
 
+# serverからのfileの受け取り
+def receive_server_file(soc):
+    # 書き込み用ファイルをオープンして処理
+    #   ファイル絡みの例外処理とクローズの処理は書く必要がありません
+    with open(rec_file_name, 'wb') as f: # 'wb' は「バイナリファイルを書き込みモードで」という意味
+        while True:
+            data = soc.recv(BUFSIZE)   # BUFSIZEバイトずつ受信
+            if len(data) <= 0:  # 受信したデータがゼロなら、相手からの送信は全て終了
+                break
+            f.write(data)  # 受け取ったデータをファイルに書き込む
+
 if __name__ == '__main__':
-    client_name = sys.argv[1]  # クライアントのホスト名あるいはIPアドレスを表す文字列
-    server_name = sys.argv[2] # サーバのホスト名
-    server_port =  int(sys.argv[3]) # サーバのポート
-    server_file_name = sys.argv[4] # ファイル名
-    token_str = sys.argv[5] # トークン文字列
-    rec_file_name = 'received_data.dat' # 受け取ったデータを書き込むファイル
     
     print(server_name)
     print(server_port)
@@ -79,12 +78,12 @@ if __name__ == '__main__':
     # rec_res(client_socket)
 
     # GET(ALl) 要求
-    # GET_req_all(client_socket, server_file_name, token_str)
-    # rec_res(client_socket)
-    # interact_with_server(client_socket) # ファイルダウンロード
+    GET_req_all(client_socket, server_file_name, token_str)
+    rec_res(client_socket)
+    receive_server_file(client_socket) # ファイルダウンロード
     
     # REP要求
-    REP_req(client_socket, server_file_name, token_str)
-    rec_res(client_socket)
+    # REP_req(client_socket, server_file_name, token_str)
+    # rec_res(client_socket)
 
     client_socket.close() # ソケットを閉じる
