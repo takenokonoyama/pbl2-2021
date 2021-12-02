@@ -7,56 +7,117 @@ import sys
 import pbl2
 
 BUFSIZE = 1024 # 受け取る最大のファイルサイズ
-server_name = sys.argv[1]  # サーバのホスト名あるいはIPアドレスを表す文字列
-server_port =  int(sys.argv[2]) # サーバのポート
+client_name = sys.argv[1]  # クライアントのホスト名あるいはIPアドレスを表す文字列
+server_name = sys.argv[2] # サーバのホスト名
+server_port =  int(sys.argv[3]) # サーバのポート
+server_file_name = sys.argv[4] # ファイル名
+token_str = sys.argv[5] # トークン文字列
 rec_file_name = 'received_data.dat' # 受け取ったデータを書き込むファイル
 
-# serverとのやり取り
-def interact_with_server(s):
+# 応答の受け取り
+def rec_res(soc):
+    # 応答コードの受け取り
+    recv_bytearray = bytearray() # 応答コードのバイト列を受け取る配列
+    while True:
+        b = soc.recv(1)[0]
+        if(bytes([b]) == b'\n'):
+            rec_str = recv_bytearray.decode()
+            break
+        recv_bytearray.append(b)
+    print('received response')
+    print(rec_str)
+
+# SIZE 
+def SIZE(soc, file_name):
+    # 要求
+    msg = f'SIZE {file_name}\n' # 要求メッセージ
+    soc.send(msg.encode())
+    print('request SIZE')
+    
+    # 応答の受け取り
+    rec_res(soc)
+    soc.close()
+
+# GET(ALL)
+def GET_all(soc, file_name,token_str):
+    # 要求
+    key = pbl2.genkey(token_str)
+    msg = f'GET {file_name} {key} ALL\n' # 要求メッセージ
+    soc.send(msg.encode())
+    print('request GET ALL')
+    
+    # 応答の受け取り
+    rec_res(soc)
+    receive_server_file(soc)
+    soc.close()
+
+
+# GET(PARTIAL)
+def GET_part(soc,file_name,token_str,sB, eB):
+    # 要求
+    key = pbl2.genkey(token_str) # keyの作成
+    msg = f'GET {file_name} {key} PARTIAL {sB} {eB}\n' # 要求メッセージ
+    soc.send(msg.encode())
+    print('request GET PARTIAL')
+
+    # 応答の受け取り
+    rec_res(soc)
+    receive_server_file(soc)
+    soc.close()    
+
+# REP
+def REP(soc, file_name, token_str):
+    key = pbl2.genkey(token_str) # keyの作成
+    repkey_out = pbl2.repkey(key, rec_file_name) # repkeyの作成
+    msg = f'REP {file_name} {repkey_out}\n' # 要求メッセージ
+    soc.send(msg.encode())
+    print('request REP')
+    
+    # 応答の受け取り
+    rec_res(soc)
+    soc.close()
+
+# serverからのfileの受け取り
+def receive_server_file(soc):
     # 書き込み用ファイルをオープンして処理
     #   ファイル絡みの例外処理とクローズの処理は書く必要がありません
     with open(rec_file_name, 'wb') as f: # 'wb' は「バイナリファイルを書き込みモードで」という意味
         while True:
-            data = s.recv(BUFSIZE)   # BUFSIZEバイトずつ受信
+            data = soc.recv(BUFSIZE)   # BUFSIZEバイトずつ受信
             if len(data) <= 0:  # 受信したデータがゼロなら、相手からの送信は全て終了
                 break
             f.write(data)  # 受け取ったデータをファイルに書き込む
-    s.close()  # 最後にソケットをクローズ
-
-# SIZE要求
-def SIZE_req(s, f):
-    msg = f'SIZE {f}\n' # 要求メッセージ
-    s.send(msg.encode())
-
-# GET要求(ALL)
-def GET_req_all(s, f, ts):
-    key = pbl2.genkey(ts)
-    msg = f'GET {f} {key} ALL\n' # 要求メッセージ
-    s.send(msg.encode())
-
-# GET要求(PARTIAL)
-def GET_req_part(s, f, ts, sB, eB):
-    key = pbl2.genkey(ts) # keyの作成
-    msg = f'GET {f} {key} PARTIAL {sB} {eB}\n' # 要求メッセージ
-    s.send(msg.encode())
-
-# REP要求
-def REP_req(s, f, ts):
-    key = pbl2.genkey(ts) # keyの作成
-    repkey_out = pbl2.repkey(key, rec_file_name) # repkeyの作成
-    msg = f'REP {f} {repkey_out}\n' # 要求メッセージ
-    s.send(msg.encode())
-
-# 応答の受け取り
-def rec_res(s):
-    rec_str = s.recv(BUFSIZE).decode()
-    print('received response')
-    print(rec_str)
 
 if __name__ == '__main__':
+    
+    print('server_name:',server_name) # サーバ名
+    print('server_port:',server_port) # サーバポート番号 
+
+    print()
+
+    # SIZE 
     client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
     client_socket.connect((server_name, server_port))  # サーバのソケットに接続する
-    
-    sever_file_name = 'aaaa' # サーバー側にあるファイル名(書き換える必要あり)
+    SIZE(client_socket, server_file_name) # SIZEコマンド
 
-    client_socket.close() # ソケットを閉じる
+    print()
+
+    # GET(ALL)
+    # 要求を2つ以上行う場合、ソケットをもう一度作る必要がある
+    client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
+    client_socket.connect((server_name, server_port))  # サーバのソケットに接続する
+    GET_all(client_socket, server_file_name, token_str) # GET(ALL)コマンド
+
+    print()
+
+    # GET(PARTIAL)
+    # client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
+    # client_socket.connect((server_name, server_port))  # サーバのソケットに接続する
+    # GET_part(client_socket, server_file_name, token_str, 0, 10) # GET(PARTIAL)コマンド
+
+    print()
+
+    # REP
+    client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
+    client_socket.connect((server_name, server_port))  # サーバのソケットに接続する
+    REP(client_socket, server_file_name, token_str) # REPコマンド
