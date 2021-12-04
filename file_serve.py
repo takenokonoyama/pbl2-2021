@@ -7,7 +7,7 @@ def user_service_thread(sock_conn, client_addr):
         while True:
             data_len = sock_conn.recv(15)
             if not data_len:
-                print("客户端断开连接")
+                print("client disconnected")
                 break
             data_len = data_len.decode().rstrip()
             data_len = int(data_len)
@@ -21,16 +21,16 @@ def user_service_thread(sock_conn, client_addr):
                 recv_size += len(tmp)    
             json_data = json_data.decode()
             req = json.loads(json_data)
-            print("我是客户端的请求",req)
-            #此时req为字典，是用户发送过来的请求
+            print("i am a client request",req)
+            #此时req as a request sent by user
 
             if req["op"] == 1:
-                print("客户要下载文件")
-                #下载传文件请求
+                print("clients wants to downloas files")
+                #download file request
 
 
                 if req["look"] == 0:
-                #查看可下载文件大小请求
+                #view download file size request
                     filename = os.path.dirname(sys.argv[0]) + "/" + req["file_name"]
                     try:
                         with open(filename,'rb') as f:
@@ -44,21 +44,21 @@ def user_service_thread(sock_conn, client_addr):
                     sock_conn.send(send_data_size)
                     sock_conn.send(send_data.encode())
                 if req["look"] == 1:
-                    #下载文件请求
-                    print("客户要下载文件........")
+                    #download file request
+                    print("client to download file........")
                     filename = os.path.dirname(sys.argv[0])+"/"+req["file_name"]
                     print(filename)
 
-                    #下载目标是文件,其中file_size变成了字符串
+                    #the download target is the file  file size change to a string
 
                     try:
                         file_size = str(os.path.getsize(filename))
                         file_type = 0
                         send_data =  {"op":1,"file_name":req["file_name"],"file_type":file_type,"file_size":file_size}
                         send_data = json.dumps(send_data)
-                        #send_data变成了json字符串
+                        #send_data became a joson string
                         send_data_size =str(len(send_data.encode())).encode()+ b' '*(15-len(str(len(send_data.encode())).encode()))
-                        print('下载传送的,',send_data_size)
+                        print('download sent,',send_data_size)
                         sock_conn.send(send_data_size)
                         sock_conn.send(send_data.encode())
                         with open(filename, "rb") as f:
@@ -67,14 +67,14 @@ def user_service_thread(sock_conn, client_addr):
                                 if len(data) == 0:
                                     break
                                 sock_conn.send(data)
-                        print("我发完了")
+                        print("i am done")
                         sock_conn.close()
 
 
                     except:
                         send_data =  {"op":1,"file_name":0}
                         send_data = json.dumps(send_data)
-                        #send_data变成了json字符串
+                        #send_data变成了json字符串 change to json string
                         send_data_size =str(len(send_data.encode())).encode()+ b' '*(15-len(str(len(send_data.encode())).encode()))
                         sock_conn.send(send_data_size)
                         sock_conn.send(send_data.encode())
@@ -82,7 +82,7 @@ def user_service_thread(sock_conn, client_addr):
 
 
     except:
-        print("客户端(%s:%s)断开连接！" % client_addr)
+        print("client(%s:%s)disconnect！" % client_addr)
         sock_conn.close()
 
 
@@ -92,6 +92,6 @@ sock_listen.bind(("127.0.0.1",9988))
 sock_listen.listen(5)
 while True:
         sock_conn, client_addr = sock_listen.accept()
-        print("客户端(%s:%s)已连接！" % client_addr)
+        print("client(%s:%s)disconnet！" % client_addr)
         threading.Thread(target=user_service_thread, args=(sock_conn, client_addr)).start()
 
