@@ -14,7 +14,6 @@ def interact_with_client_TCP(soc):
     print('Received: {0}'.format(sentence)) 
     capitalized_sentence = sentence
     print('Sending: {0}'.format(capitalized_sentence))
-
     soc.send(capitalized_sentence.encode())
     soc.close()
 
@@ -32,7 +31,8 @@ def main_TCP():
     server_socket.bind(('', server_port))
     server_socket.listen(5) #TCP
     print('The server is ready to receive by TCP')
-    connection_socket, addr = server_socket.accept() #TCP    
+    connection_socket, addr = server_socket.accept() #TCP
+        
     client_handler = threading.Thread(target=interact_with_client_TCP, args=(connection_socket,)) #TCP
     client_handler.start()  # スレッドを開始
 
@@ -43,7 +43,12 @@ def main_UDP():
     interact_with_client_UDP(server_socket)
 
 if __name__ == '__main__':
-    main_TCP()
-    #main_UDP()
-
+    key = int (input("Use TCP 1, UDP 2 :"))
+    while True:
+        if key == 1 :
+            main_TCP()
+        elif key == 2 :
+            main_UDP()
+        else :
+            print("You can't use")
     
