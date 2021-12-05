@@ -15,7 +15,7 @@ token_str = sys.argv[5] # トークン文字列
 rec_file_name = 'received_data.dat' # 受け取ったデータを書き込むファイル
 
 mid_name = "localhost"
-mid_port = 53009
+mid_port = 53013
 
 
 # 応答の受け取り
@@ -109,12 +109,11 @@ if __name__ == '__main__':
     # GET(ALL)
     # 要求を2つ以上行う場合、ソケットをもう一度作る必要がある
     client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
-    #client_socket.connect((mid_name,mid_port)) #中間サーバ―と通信する場合
+    #client_socket.connect((server_name, server_port))  # サーバのソケットに接続する
+    client_socket.connect((mid_name,mid_port))#中間サーバ―と通信する場合
     #注意
     #このまま中間サーバ―を経由してGET要求をすると中間サーバ―からGETしたことになるため対策が必要
     #最終課題説明のGET要求の項目に記載あり
-
-    client_socket.connect((server_name, server_port))  # サーバのソケットに接続する
     GET_all(client_socket, server_file_name, token_str) # GET(ALL)コマンド
 
     # GET(PARTIAL)
