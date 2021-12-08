@@ -7,16 +7,15 @@ import sys
 import pbl2
 
 BUFSIZE = 1024 # 受け取る最大のファイルサイズ
-client_name = sys.argv[1]  # クライアントのホスト名あるいはIPアドレスを表す文字列
+my_name = sys.argv[1]  # クライアントのホスト名あるいはIPアドレスを表す文字列
+my_port = 53602 # クライアントのポート
 server_name = sys.argv[2] # サーバのホスト名
 server_port =  int(sys.argv[3]) # サーバのポート
-server_file_name = sys.argv[4] # ファイル名
+server_file_name = sys.argv[4] # サーバ側にあるファイル名
 token_str = sys.argv[5] # トークン文字列
 rec_file_name = 'received_data.dat' # 受け取ったデータを書き込むファイル
-
-mid_name = "localhost"
-mid_port = 53013
-
+mid_name = 'pbl2' # GET要求をするホストの名前
+mid_port = 53601 # GET要求をするホストのポート
 
 # 応答の受け取り
 def rec_res(soc):
@@ -25,12 +24,13 @@ def rec_res(soc):
     while True:
         b = soc.recv(1)[0]
         if(bytes([b]) == b'\n'):
-            recv_bytearray.append(b)
             rec_str = recv_bytearray.decode()
             break
         recv_bytearray.append(b)
-    print('received response')
+    print('received')
     print(rec_str)
+
+    return rec_str
 
 # SIZE 
 def SIZE(soc, file_name):
@@ -50,9 +50,10 @@ def GET_all(soc, file_name,token_str):
     msg = f'GET {file_name} {key} ALL\n' # 要求メッセージ
     soc.send(msg.encode())
     print('request GET ALL')
-    
+
     # 応答の受け取り
     rec_res(soc)
+
     receive_server_file(soc)
     soc.close()
 
@@ -74,6 +75,7 @@ def REP(soc, file_name, token_str):
     key = pbl2.genkey(token_str) # keyの作成
     repkey_out = pbl2.repkey(key, rec_file_name) # repkeyの作成
     msg = f'REP {file_name} {repkey_out}\n' # 要求メッセージ
+    # print(msg)
     soc.send(msg.encode())
     print('request REP')
     
@@ -93,37 +95,53 @@ def receive_server_file(soc):
             f.write(data)  # 受け取ったデータをファイルに書き込む
 
 if __name__ == '__main__':
-    
-    print('server_name:',server_name) # サーバ名
-    print('server_port:',server_port) # サーバポート番号 
 
+    
+    # 情報の出力
+    print('my name', my_name)
+    print('my port', my_port)
+
+    print('server name', server_name)
+    print('server port', server_port)
+    
+    print('mid_name', mid_name)
+    print('mid_port', mid_port)
+    
     print()
-
-    # SIZE 
+    '''
+    # ---------ネットワークの状態を調べる--------------
+    n = 1
+    mid_servers = ['pbl1', 'pbl2', 'pbl3', 'pbl4']
+    mid_ports = [53601, 53602, 53603, 53604]
+    for i in range(n):
+        mid_socket = socket(AF_INET, SOCK_STREAM)
+        mid_socket.connect((mid_servers[i], mid_ports[i]))
+        a = 'aaaa'
+        mid_socket.send(a.encode())
+        print('Sending {0} to {1}'.format(a, mid_servers[i]))
     
-    client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
-    client_socket.connect((mid_name,mid_port)) #中間サーバ―と通信する場合
-    #client_socket.connect((server_name, server_port))  # サーバのソケットに接続する
-    SIZE(client_socket, server_file_name) # SIZEコマンド
+    rep_socket = socket(AF_INET, SOCK_STREAM)  # TCPを使う待ち受け用のソケットを作る
+    rep_socket.bind(('', my_port))  # ポート番号をソケットに対応づける
+    rep_socket.listen(6)  # クライアントからの接続を待つ
 
-    # GET(ALL)
-    # 要求を2つ以上行う場合、ソケットをもう一度作る必要がある
-    client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
-    #client_socket.connect((server_name, server_port))  # サーバのソケットに接続する
-    client_socket.connect((mid_name,mid_port))#中間サーバ―と通信する場合
-    #注意
-    #このまま中間サーバ―を経由してGET要求をすると中間サーバ―からGETしたことになるため対策が必要
-    #最終課題説明のGET要求の項目に記載あり
-    GET_all(client_socket, server_file_name, token_str) # GET(ALL)コマンド
+    while True:
+        # クライアントからの接続があったら、それを受け付け、
+        # そのクライアントとの通信のためのソケットを作る
+        connection_socket, addr = rep_socket.accept()
+        # クライアントからバイト列を最大1024バイト受信し、
+        # 文字列に変換（decode()）する。
+        sentence = connection_socket.recv(1024).decode()  
+        print('Recieved {0}'.format(sentence))
+    '''
+    
+    # ---------ダウンロードしたファイルをルーティングした経路で送信---------
 
-    # GET(PARTIAL)
-    # client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
-    # client_socket.connect((server_name, server_port))  # サーバのソケットに接続する
-    # GET_part(client_socket, server_file_name, token_str, 0, 10) # GET(PARTIAL)コマンド
+    get_socket = socket(AF_INET, SOCK_STREAM)
+    get_socket.connect((mid_name, mid_port)) # 転送管理サーバのソケットに接続する
+    
+    GET_all(get_socket, server_file_name, token_str) # GET要求をするための情報を送信
+    
 
-
-    # REP
-    client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
-    client_socket.connect((mid_name,mid_port)) #中間サーバ―と通信する場合
-    #client_socket.connect((server_name, server_port))  # サーバのソケットに接続する
-    REP(client_socket, server_file_name, token_str) # REPコマンド
+    server_socket = socket(AF_INET, SOCK_STREAM)
+    server_socket.connect((server_name, server_port))  # サーバのソケットに接続する
+    REP(server_socket, server_file_name, token_str) # REP
