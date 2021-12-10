@@ -10,10 +10,11 @@ BUFSIZE = 1024 # 受け取る最大のファイルサイズ
 rec_file_name = 'midreceived_data.dat' # 受け取ったデータを書き込むファイル
 
 mid_name = os.uname()[1] # 中間サーバのホスト名あるいはIPアドレスを表す文字列
-server_name = sys.argv[1] # サーバのホスト名
-server_port =  int(sys.argv[2]) # サーバのポート
 
-mid_port = 53013
+server_name = 0 # サーバのホスト名
+server_port = 0 # サーバのポート
+
+mid_port = 53010
 
 def rec_res(soc):
     # 応答コードの受け取り
@@ -26,6 +27,20 @@ def rec_res(soc):
             break
         recv_bytearray.append(b)
     print('received response')
+
+    return rec_str
+
+def rec_res_set(soc):
+    # 応答コードの受け取り
+    recv_bytearray = bytearray() # 応答コードのバイト列を受け取る配列
+    while True:
+        b = soc.recv(1)[0]
+        if(bytes([b]) == b'\n'):
+            rec_str = recv_bytearray.decode()
+            break
+        recv_bytearray.append(b)
+    print('received response')
+
     return rec_str
 
 def receive_server_file(soc):
@@ -58,21 +73,28 @@ def mid_server(server_name, server_port,sentence,com):#中間サーバとサー�
     return rep
 
 def interact_with_client_TCP(soc):
+    global server_name
+    global server_port
     sentence = rec_res(soc)
     print('Received: {0}'.format(sentence)) 
     print(sentence[0:3])
     com=sentence[0:3] 
+    if com=="SET":
+        server_name = rec_res_set(soc)
+        server_port = int(rec_res_set(soc))
+        print('server_name:',server_name) # サーバ名
+        print('server_port:',server_port) # サーバポート番号
+    if com !="SET":
+        rep_sentence=mid_server(server_name, server_port,sentence,com)
+        print('Sending to client: {0}'.format(rep_sentence))
+        soc.send(rep_sentence.encode())
 
-    rep_sentence=mid_server(server_name, server_port,sentence,com)
-    print('Sending to client: {0}'.format(rep_sentence))
-    soc.send(rep_sentence.encode())
+        if com=="GET":
+            #"midreceived_data.dat"を送りたい
+            #現状ファイルの中身を一度開いて一文字ずつ送ってる
+            openfile("midreceived_data.dat",soc)
 
-    if com=="GET":
-        #"midreceived_data.dat"を送りたい
-        #現状ファイルの中身を一度開いて一文字ずつ送ってる
-        openfile("midreceived_data.dat",soc)
-
-    print("Finish Sending")
+        print("Finish Sending")
     soc.close()
 
 def openfile(file_name,soc) :
@@ -107,14 +129,8 @@ def interact_with_client_UDP(soc):
     print(soc)
 
 """
-def BC():
-    s=socket(AF_INET, SOCK_DGRAM)
-    s.bind(('',mid_port))
-    m=s.recvfrom(1024)
-    print (m[0].decode())
 
 if __name__ == '__main__':
-    BC()
     print("mid_name:",mid_name)
     print("mid_port:",mid_port)
-    #main_TCP()
+    main_TCP()
