@@ -18,7 +18,7 @@ mid_name = sys.argv[5] # 中間サーバのホスト名
 rec_file_name = 'received_data.dat' # 受け取ったデータを書き込むファイル
 
 
-mid_port = 53013
+mid_port = 53010
 
 
 # 応答の受け取り
@@ -96,44 +96,51 @@ def receive_server_file(soc):
             f.write(data)  # 受け取ったデータをファイルに書き込む
 
 def BC():
-    ADDRESS = {"pbl1","pbl2","pbl3","pbl4","pbl5","pbl6","pbl7"}
-    s=socket(AF_INET, SOCK_DGRAM)
-    s.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
+    ADDRESS = {"pbl1","pbl2","pbl3","pbl4"}#,"pbl5","pbl6","pbl7"}
+    client_socket = socket(AF_INET, SOCK_STREAM) 
     print("BC")
-    sentence ='this is testing'
+    command = f'SET\n'
+    sentence1 = f'{server_name}\n' # サーバ名メッセージ
+    sentence2 = f'{server_port}\n' # サーバポートメッセージ
+    sentence3 = 'I am client'
     for address in ADDRESS:
         if client_name != address :
-            s.sendto(sentence.encode(),(address,mid_port))
-            print("sending:",sentence,"to",address)
-    s.close()
+            try :
+                client_socket.connect((address, mid_port))
+                client_socket.send(command.encode())
+                print("sending:",command,"to",address)
+                client_socket.send(sentence1.encode())
+                print("sending:",sentence1,"to",address)
+                client_socket.send(sentence2.encode())
+                print("sending:",sentence2,"to",address)
+            except :
+                print("Can't send to",address)
+        else :
+            try :
+                client_socket.connect((address, mid_port))
+                client_socket.send(sentence3.encode())
+                print("sending:",sentence3,"to",address)
+            except :
+                print("Can't send to",address)
+    client_socket.close()
 
-if __name__ == '__main__':
-    BC()
-
-    print('server_name:',server_name) # サーバ名
-    print('server_port:',server_port) # サーバポート番号 
-
-    print()
-
-    print('mid_name:',mid_name) # 中間サーバ名
-    print('mid_port:',mid_port) # 中間サーバポート番号 
-    print()
-
+def commandMain(key):
     # SIZE 
-    
     client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
-    #client_socket.connect((mid_name, mid_port)) #中間サーバ―と通信する場合
-    client_socket.connect((server_name, server_port))  # サーバのソケットに接続する
+    if key == 0 :
+        client_socket.connect((server_name, server_port)) # サーバのソケットに接続する
+    elif key == 1:
+        client_socket.connect((mid_name, mid_port))  #中間サーバ―と通信する場合
     SIZE(client_socket, server_file_name) # SIZEコマンド
 
     # GET(ALL)
     # 要求を2つ以上行う場合、ソケットをもう一度作る必要がある
     client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
-    #client_socket.connect((server_name, server_port))  # サーバのソケットに接続する
-    client_socket.connect((mid_name, mid_port))#中間サーバ―と通信する場合
-    #注意
-    #このまま中間サーバ―を経由してGET要求をすると中間サーバ―からGETしたことになるため対策が必要
-    #最終課題説明のGET要求の項目に記載あり
+    if key == 0 :
+        client_socket.connect((server_name, server_port)) # サーバのソケットに接続する
+    elif key == 1:
+        client_socket.connect((mid_name, mid_port))  #中間サーバ―と通信する場合
+    
     GET_all(client_socket, server_file_name, token_str) # GET(ALL)コマンド
 
     # GET(PARTIAL)
@@ -144,6 +151,20 @@ if __name__ == '__main__':
 
     # REP
     client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
-    client_socket.connect((mid_name,mid_port)) #中間サーバ―と通信する場合
-    #client_socket.connect((server_name, server_port))  # サーバのソケットに接続する
+    if key == 0 :
+        client_socket.connect((server_name, server_port)) # サーバのソケットに接続する
+    elif key == 1:
+        client_socket.connect((mid_name, mid_port))  #中間サーバ―と通信する場合
     REP(client_socket, server_file_name, token_str) # REPコマンド
+
+if __name__ == '__main__':
+    BC()
+    print('server_name:',server_name) # サーバ名
+    print('server_port:',server_port) # サーバポート番号 
+    print()
+    print('mid_name:',mid_name) # 中間サーバ名
+    print('mid_port:',mid_port) # 中間サーバポート番号 
+    print()
+    commandMain(1)
+
+    
