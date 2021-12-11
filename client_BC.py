@@ -34,6 +34,7 @@ def rec_res(soc):
         recv_bytearray.append(b)
     print('received response')
     print(rec_str)
+    return rec_str
 
 # SIZE 
 def SIZE(soc, file_name):
@@ -99,29 +100,26 @@ def BC():
     ADDRESS = {"pbl1","pbl2","pbl3","pbl4"}#,"pbl5","pbl6","pbl7"}
     client_socket = socket(AF_INET, SOCK_STREAM) 
     print("BC")
-    command = f'SET\n'
-    sentence1 = f'{server_name}\n' # サーバ名メッセージ
-    sentence2 = f'{server_port}\n' # サーバポートメッセージ
-    sentence3 = 'I am client'
+    command1 = f'SET {server_name} {server_port}\n'
+    command2 = f'IAM {server_name} {server_port}\n'
     for address in ADDRESS:
         if client_name != address :
             try :
                 client_socket.connect((address, mid_port))
-                client_socket.send(command.encode())
-                print("sending:",command,"to",address)
-                client_socket.send(sentence1.encode())
-                print("sending:",sentence1,"to",address)
-                client_socket.send(sentence2.encode())
-                print("sending:",sentence2,"to",address)
+                client_socket.send(command1.encode())
+                print("sending:","to",address,command1)
+                rep=rec_res(client_socket)
+                print(rep)
             except :
                 print("Can't send to",address)
         else :
             try :
                 client_socket.connect((address, mid_port))
-                client_socket.send(sentence3.encode())
-                print("sending:",sentence3,"to",address)
+                client_socket.send(command2.encode())
+                print("sending:","to",address,command2)
             except :
                 print("Can't send to",address)
+
     client_socket.close()
 
 def commandMain(key):
