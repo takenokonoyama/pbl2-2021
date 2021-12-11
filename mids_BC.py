@@ -2,7 +2,6 @@
 # mids.py
 
 from socket import *
-import sys
 import threading  # for Thread()
 import os
 
@@ -21,24 +20,10 @@ def rec_res(soc):
     recv_bytearray = bytearray() # 応答コードのバイト列を受け取る配列
     while True:
         b = soc.recv(1)[0]
-        if(bytes([b]) == b'\n'):
-            recv_bytearray.append(b)
-            rec_str = recv_bytearray.decode()
-            break
         recv_bytearray.append(b)
-    print('received response')
-
-    return rec_str
-
-def rec_res_set(soc):
-    # 応答コードの受け取り
-    recv_bytearray = bytearray() # 応答コードのバイト列を受け取る配列
-    while True:
-        b = soc.recv(1)[0]
         if(bytes([b]) == b'\n'):
             rec_str = recv_bytearray.decode()
             break
-        recv_bytearray.append(b)
     print('received response')
 
     return rec_str
@@ -60,8 +45,14 @@ def mid_server(server_name, server_port,sentence,com):#中間サーバとサー�
     print(server_name)
     print(server_port)
 
-    mid_socket.send(sentence.encode())  
-    rep = rec_res(mid_socket)
+    if com =="SET":
+        sentence=f"DEC{mid_name}\n"
+        mid_socket.send(sentence.encode())  
+        rep = rec_res(mid_socket)
+        rep = f"{rep[0:7]}{mid_name}\n"
+    else:
+        mid_socket.send(sentence.encode())  
+        rep = rec_res(mid_socket)
     print(rep)
     print(com)
 
@@ -75,16 +66,39 @@ def mid_server(server_name, server_port,sentence,com):#中間サーバとサー�
 def interact_with_client_TCP(soc):
     global server_name
     global server_port
+    print("inter")
     sentence = rec_res(soc)
     print('Received: {0}'.format(sentence)) 
     print(sentence[0:3])
     com=sentence[0:3] 
+    
     if com=="SET":
-        server_name = rec_res_set(soc)
-        server_port = int(rec_res_set(soc))
+        server_name = sentence[4:8]
+        server_port = int(sentence[8:14])
         print('server_name:',server_name) # サーバ名
         print('server_port:',server_port) # サーバポート番号
-    if com !="SET":
+        if mid_name == server_name:
+            print("I am Server")
+
+            rep_sentence=f"DEC{mid_name}\n"
+            soc.send(rep_sentence.encode())
+        else :    
+            rep_sentence=mid_server(server_name, mid_port,sentence,com)
+            print('Sending to client: {0}'.format(rep_sentence))
+            soc.send(rep_sentence.encode())
+
+    elif com =="DEC":
+        rep_sentence=f"DEC{mid_name}\n"
+        print('Sending to client: {0}'.format(rep_sentence))
+        soc.send(rep_sentence.encode())
+    elif com =="IAM" :
+        server_name = sentence[4:8]
+        server_port = int(sentence[8:14])
+        pass
+        
+    else: #SIZE,GET,REP
+        print(server_name,type(server_name))
+        print(server_port,type(server_port))
         rep_sentence=mid_server(server_name, server_port,sentence,com)
         print('Sending to client: {0}'.format(rep_sentence))
         soc.send(rep_sentence.encode())
@@ -117,18 +131,6 @@ def main_TCP(): #クライアントと中間サーバの通信
         connection_socket, addr = mid_socket.accept()  
         client_handler = threading.Thread(target=interact_with_client_TCP, args=(connection_socket,))
         client_handler.start()  # スレッドを開始
-
-"""
-def main_UDP():
-    server_socket = socket(AF_INET, SOCK_DGRAM) #UDP
-    server_socket.bind(('', server_port))
-    print('The server is ready to receive by UDP')
-    interact_with_client_UDP(server_socket)
-
-def interact_with_client_UDP(soc):
-    print(soc)
-
-"""
 
 if __name__ == '__main__':
     print("mid_name:",mid_name)
