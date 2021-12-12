@@ -45,18 +45,18 @@ def mid_server(server_name, server_port,sentence,com):#中間サーバとサー�
     print(server_name)
     print(server_port)
 
-    if com =="SET":
-        sentence=f"DEC{mid_name}\n"
+    if com =="SET":#サーバのない中間サーバからサーバのある中間サーバへの処理
+        sentence=f"DEC{mid_name}\n"#自分の名前を添えてDECコマンドをサーバのある中間サーバへ
         mid_socket.send(sentence.encode())  
         rep = rec_res(mid_socket)
-        rep = f"{rep[0:7]}{mid_name}\n"
-    else:
+        rep = f"{rep[0:3]}{mid_name}\n"#返ってきたDECコマンドに自分の名前をつけて返信する。
+    else:#SIZE,GET,REPのサーバへの通信
         mid_socket.send(sentence.encode())  
         rep = rec_res(mid_socket)
     print(rep)
     print(com)
 
-    if com =="GET" :
+    if com =="GET" :#GETはデータの受け取りの際に一行目応答、二行目データであるから二回受け取る必要あり
         receive_server_file(mid_socket)
         return rep
 
@@ -72,34 +72,35 @@ def interact_with_client_TCP(soc):
     print(sentence[0:3])
     com=sentence[0:3] 
     
-    if com=="SET":
+    if com=="SET":#このコマンドでサーバ名とサーバポート番号が知れる
         server_name = sentence[4:8]
         server_port = int(sentence[8:14])
         print('server_name:',server_name) # サーバ名
         print('server_port:',server_port) # サーバポート番号
-        if mid_name == server_name:
+        if mid_name == server_name:#SETで送られてきたのがサーバのある中間サーバなら
             print("I am Server")
 
-            rep_sentence=f"DEC{mid_name}\n"
+            rep_sentence=f"DEC{mid_name}\n"#DECコマンドをサーバのホストの名前をつけ返す
             soc.send(rep_sentence.encode())
-        else :    
+        else :#SETで送られてきたのがサーバのない中間サーバだったら
             rep_sentence=mid_server(server_name, mid_port,sentence,com)
+            #↑サーバのある中間サーバへの通信を始める。
             print('Sending to client: {0}'.format(rep_sentence))
             soc.send(rep_sentence.encode())
 
-    elif com =="DEC":
-        rep_sentence=f"DEC{mid_name}\n"
+    elif com =="DEC":#基本今はサーバのある中間サーバが他の中間サーバから受け取ったDECコマンドへの処理
+        rep_sentence=f"DEC{mid_name}\n"#サーバのある中間サーバはここだよって返信。DEC以外消されちゃうけど
         print('Sending to client: {0}'.format(rep_sentence))
         soc.send(rep_sentence.encode())
-    elif com =="IAM" :
+    elif com =="IAM" :#クライアントのある中間サーバはサーバの情報を格納するだけ
         server_name = sentence[4:8]
         server_port = int(sentence[8:14])
         pass
         
-    else: #SIZE,GET,REP
+    else: #SIZE,GET,REPを中間サーバが受け取ったとき
         print(server_name,type(server_name))
         print(server_port,type(server_port))
-        rep_sentence=mid_server(server_name, server_port,sentence,com)
+        rep_sentence=mid_server(server_name, server_port,sentence,com)#中間サーバとサーバのやりとり
         print('Sending to client: {0}'.format(rep_sentence))
         soc.send(rep_sentence.encode())
 
