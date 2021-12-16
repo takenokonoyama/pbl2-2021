@@ -21,6 +21,7 @@ data_size=0 #GETでデータを分割してDLするためにSIZEでデータ量�
 thread=1 #GET PARTIALでファイルに書き込みする時に順番を崩さないため
 route_timeout=0 #経路作成時、スレッドのタイムアウトを行なうため
 timeout_time=10 #経路作成のタイムアウトする時間。変動できるようにした
+
 mid_port = 53011
 
 
@@ -75,7 +76,9 @@ def data_size_clt(size_sentence):#SIZE要求がOKだった場合にデータ量�
         else:
             data_size+=i
 
-def blank_set(sentence,count_time):
+def blank_set(sentence,count_time):#文字列の一部分を取り出すための関数
+    #取り出したい文字列とその文字列の何単語めかを引数にしてる。
+    #DEC pbl1 pbl3　でpbl1を取り出したいならcount_timeは1
     rep_sentence=[]
     count=0
     i=0
@@ -88,6 +91,7 @@ def blank_set(sentence,count_time):
         if count == count_time:
             rep_sentence.append(sentence[i]) 
         i+=1
+
     count=0
     for i in rep_sentence:#配列を基に返信の文字列を作成
         if count==0:
@@ -95,7 +99,7 @@ def blank_set(sentence,count_time):
         else:
             rep+=i
         count+=1
-    return rep
+    return rep #返されるのは取り出したい単語
 
 # GET(ALL)
 def GET_all(soc, file_name,token_str):
@@ -159,23 +163,24 @@ def receive_server_file(soc,order):
             f.write(data)  # 受け取ったデータをファイルに書き込む
 
 def BCmain(address):#スレッドでコネクトすれば安定してコネクトできる説
-    global route_timeout
-    connect=[]
+    global route_timeout #経路作成時のタイムアウトをスレッドで実行するためのもの　0 :中間サーバの追加可能 1:中間サーバの追加をやめる
+    #時間制限で中間サーバを追加する理由は帯域幅が極端に狭い経路を排除したいから
+    connect=[]#帯域幅が広めの中間サーバを保存する配列
     for i in range(0,len(address)) :
         print(i,address[i])
         c = threading.Thread(target=BCth, args=(address[i],))
         connect.append(c)
         print(connect[i])
-        connect[i].start()
+        connect[i].start()#配列に格納次第スレッド開始
     for i in range(0,len(address)) :
-        connect[i].join(timeout = 2*timeout_time)#タイムアウト時間を設定。
+        connect[i].join(timeout = 2*timeout_time)#タイムアウト時間を設定　パラメータはよく考えるべき
     route_timeout=1 #経路作成のタイムアウト。スレッドは動いたままだが中間サーバの追加は終了
 
 def BCth(address):# thはthreadの略
     global mids
-    global timeout_time
+    global timeout_time #タイムアウトの時間をスレッドの中からでも変更できるようにしたいから
     client_socket = socket(AF_INET, SOCK_STREAM) 
-    command1 = f'SET {server_name} {server_port}\n'#クライアント以外に送るメッセージ
+    command1 = f'SET {server_name} {server_port}\n'#クライアント以外で働く中間サーバへ送るメッセージ
     command2 = f'IAM {server_name} {server_port}\n'#クライアントで働く中間サーバへ
     if client_name != address :
         try :
@@ -186,10 +191,11 @@ def BCth(address):# thはthreadの略
             rep=rec_res(client_socket)
             mid_name=blank_set(rep,1)#どこから送られてきたのか
             if route_timeout==0: #タイムアウトでなければ中間サーバ追加
-                if len(mids) == 0:
+                if len(mids) == 0:#一番最初にconnect出来た時
                     timeout_time=time.time()-start_time
+                    #ここで一番最初にconnectした中間サーバを基準にconnectのタイムアウト時間を設定している
                     print(timeout_time)
-                mids.append(mid_name)#通信できた中間サーバを記録
+                mids.append(mid_name)#時間内に通信できた中間サーバを記録
                 print(mids)
                 print(len(mids))
                 print(rep)
@@ -206,19 +212,18 @@ def BCth(address):# thはthreadの略
     client_socket.close()
 
 
-def commandMain():#key =0 direct server key=1 midserver 
-    # SIZE 
+def commandMain(): 
     key=len(mids) #使える経路の数で決まる
-    #key =0 direct server key>=1 midserverの数
+    #key =0 directでserverと通信 key>=1 serverと通信する際に挟むmidserverの数
 
+    # SIZE 
     client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
     if key == 0 :
         client_socket.connect((server_name, server_port)) # サーバのソケットに接続する
     elif key >= 1:
-        mid_name=mids[0] #一番早くコネクトした
+        mid_name=mids[0] #一番早くコネクトした中間サーバを用いて通信
         client_socket.connect((mid_name, mid_port))  #中間サーバ―と通信する場合
     SIZE(client_socket, server_file_name) # SIZEコマンド
-
     
     # GET(ALL)
     # 要求を2つ以上行う場合、ソケットをもう一度作る必要がある
@@ -241,7 +246,7 @@ def commandMain():#key =0 direct server key=1 midserver
         for i in range(0,len(mids)):#データ分割
             #使える転送管理サーバの数に応じて同量でデータ分割
             #帯域幅とかでデータの量変えられると神
-            if i == 0:
+            if i == 0:#始め0からじゃないと全部DL出来ないのでif
                 separate_data_s=0
             else :
                 separate_data_s=separate_data_e+1
@@ -278,12 +283,13 @@ def commandMain():#key =0 direct server key=1 midserver
     REP(client_socket, server_file_name, token_str) # REPコマンド
 
 if __name__ == '__main__':
-    address=["pbl1a","pbl2a","pbl3a","pbl4a","pbl5a","pbl6a","pbl7a"]
-    #address=["pbl1","pbl2","pbl3","pbl4"]
-    if server_name == "localhost":#念のため
+
+    address=["pbl1a","pbl2a","pbl3a","pbl4a","pbl5a","pbl6a","pbl7a"]#AWS環境
+    #address=["pbl1","pbl2","pbl3","pbl4"]#local環境
+    if server_name == "localhost":#念のためサーバ名がpblXにしか対応してないから置換
         server_name = os.uname()[1]
     start=time.time()
-    BCmain(address)
+    BCmain(address)#経路探索の関数
     print('server_name:',server_name) # サーバ名
     print('server_port:',server_port) # サーバポート番号 
     print()
@@ -293,5 +299,8 @@ if __name__ == '__main__':
     end=time.time()
     print(end-start)
     print(mids,len(mids))
-    commandMain()
+    commandMain()#SIZE,GET,REPを行なう関数
+    print(mids,len(mids))
+    end=time.time()
+    print(end-start)
     
