@@ -20,7 +20,7 @@ mids=[] #使える中間サーバを格納する
 data_size=0 #GETでデータを分割してDLするためにSIZEでデータ量を格納する
 thread=1 #GET PARTIALでファイルに書き込みする時に順番を崩さないため
 route_timeout=0 #経路作成時、スレッドのタイムアウトを行なうため
-
+timeout_time=10 #経路作成のタイムアウトする時間。変動できるようにした
 mid_port = 53011
 
 
@@ -88,7 +88,6 @@ def blank_set(sentence,count_time):
         if count == count_time:
             rep_sentence.append(sentence[i]) 
         i+=1
-    print("rep_sentence",rep_sentence)
     count=0
     for i in rep_sentence:#配列を基に返信の文字列を作成
         if count==0:
@@ -161,8 +160,8 @@ def receive_server_file(soc,order):
 
 def BCmain():#スレッドでコネクトすれば安定してコネクトできる説
     global route_timeout
-    address=["pbl1a","pbl2a","pbl3a","pbl4a","pbl5a","pbl6a","pbl7a"]
-    #address=["pbl1","pbl2","pbl3","pbl4"]
+    #address=["pbl1a","pbl2a","pbl3a","pbl4a","pbl5a","pbl6a","pbl7a"]
+    address=["pbl1","pbl2","pbl3","pbl4"]
     connect=[]
     for i in range(0,len(address)) :
         print(i,address[i])
@@ -171,26 +170,31 @@ def BCmain():#スレッドでコネクトすれば安定してコネクトでき
         print(connect[i])
         connect[i].start()
     for i in range(0,len(address)) :
-        connect[i].join(timeout =10)#タイムアウト時間を設定。
+        connect[i].join(timeout = 3*timeout_time)#タイムアウト時間を設定。
     route_timeout=1 #経路作成のタイムアウト。スレッドは動いたままだが中間サーバの追加は終了
 
 def BCth(address):# thはthreadの略
     global mids
+    global timeout_time
     client_socket = socket(AF_INET, SOCK_STREAM) 
     command1 = f'SET {server_name} {server_port}\n'#クライアント以外に送るメッセージ
     command2 = f'IAM {server_name} {server_port}\n'#クライアントで働く中間サーバへ
     if client_name != address :
         try :
+            start_time=time.time()
             client_socket.connect((address, mid_port))
             client_socket.send(command1.encode())
             print("sending:","to",address,command1)
             rep=rec_res(client_socket)
             mid_name=blank_set(rep,1)#どこから送られてきたのか
             if route_timeout==0: #タイムアウトでなければ中間サーバ追加
+                if len(mids) == 0:
+                    timeout_time=time.time()-start_time
+                    print(timeout_time)
                 mids.append(mid_name)#通信できた中間サーバを記録
-            print(mids)
-            print(len(mids))
-            print(rep)
+                print(mids)
+                print(len(mids))
+                print(rep)
         except OSError:
              print("Can't send to",address)
     else :
@@ -231,21 +235,7 @@ def commandMain():#key =0 direct server key=1 midserver
         GET_all(client_socket, server_file_name, token_str) # GET(ALL)コマンド
         end=time.time()
         print(end-start)
-    elif key == 2: #別にしたのkey3と分けなくてもいいけど残しとく
-        # GET(PARTIAL)
-        start=time.time()
-        half_size=int(data_size/2)
-        client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
-        client_socket.connect((mids[0], mid_port))  # サーバのソケットに接続する
-        GET_part_send(client_socket, server_file_name, token_str, 0, half_size) # GET(PARTIAL)コマンド
-        GET_part_rec(client_socket,1)
-        client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
-        client_socket.connect((mids[1], mid_port))  # サーバのソケットに接続する
-        GET_part_send(client_socket, server_file_name, token_str,half_size+1, data_size) # GET(PARTIAL)コマンド
-        GET_part_rec(client_socket,2)
-        end=time.time()
-        print(end-start)
-    elif key >= 3:
+    elif key >= 2:
         start=time.time()
 
         sep_datas_s=[] #分けたデータの始めを入れる　スレッド用
