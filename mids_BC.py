@@ -73,9 +73,8 @@ def interact_with_client_TCP(soc):
     com=sentence[0:3] 
     
     if com=="SET":#このコマンドでサーバ名とサーバポート番号が知れる
-        server_name = blank_set(sentence,1)
-        server_port = blank_set(sentence,2)
-        server_port = int(server_port)
+        server_name = blank_set(sentence,1)#sentenceの二単語目を使いたい
+        server_port = int(blank_set(sentence,2))#sentenceの三単語目を使いたい　str型からint型へ
         print('server_name:',server_name) # サーバ名
         print('server_port:',server_port) # サーバポート番号
         if mid_name == server_name:#SETで送られてきたのがサーバのある中間サーバなら
@@ -94,8 +93,8 @@ def interact_with_client_TCP(soc):
         print('Sending to client: {0}'.format(rep_sentence))
         soc.send(rep_sentence.encode())
     elif com =="IAM" :#クライアントのある中間サーバはサーバの情報を格納するだけ
-        server_name = blank_set(sentence,1)
-        server_port = int(blank_set(sentence,2))
+        server_name = blank_set(sentence,1)#sentenceの二単語目を使いたい
+        server_port = int(blank_set(sentence,2))#sentenceの三単語目を使いたい
         print('server_name:',server_name,type(server_name)) # サーバ名
         print('server_port:',server_port,type(server_port)) # サーバポート番号
         pass
@@ -115,7 +114,7 @@ def interact_with_client_TCP(soc):
         print("Finish Sending")
     soc.close()
 
-def openfile(file_name,soc) :
+def openfile(file_name,soc) :#fileを開き一文字ずつ送るための関数
     path=os.getcwd()
     print(path)
     path +="/"
@@ -124,12 +123,16 @@ def openfile(file_name,soc) :
         s = f.read()
         soc.send(s)
 
-def blank_set(sentence,count_time):
+def blank_set(sentence,count_time):#文字列の一部分を取り出すための関数
+    #取り出したい文字列とその文字列の何単語めかを引数にしてる。
+    #DEC pbl1 pbl3　でpbl1を取り出したいならcount_timeは1
     rep_sentence=[]
     count=0
     i=0
     str=' '
     print(len(sentence)-1)
+    #1,配列に文字を格納してから、2,配列を基に返信の文字列を作成
+    #1,配列に文字を格納
     while i < len(sentence): #カウントするblanck 数
         if  str == sentence[i]:#空白をカウントしてる。
             count+=1
@@ -137,7 +140,8 @@ def blank_set(sentence,count_time):
         if count == count_time:
             rep_sentence.append(sentence[i]) 
         i+=1
-    print("rep_sentence",rep_sentence)
+
+    #2,配列を基に返信の文字列を作成
     count=0
     for i in rep_sentence:#配列を基に返信の文字列を作成
         if count==0:
@@ -145,7 +149,7 @@ def blank_set(sentence,count_time):
         else:
             rep+=i
         count+=1
-    return rep
+    return rep #返されるのは取り出したい単語
 
 def main_TCP(): #クライアントと中間サーバの通信
     mid_socket = socket(AF_INET, SOCK_STREAM) # ソケットを作る
