@@ -21,7 +21,7 @@ data_size=0 #GETでデータを分割してDLするためにSIZEでデータ量�
 thread=1 #GET PARTIALでファイルに書き込みする時に順番を崩さないため
 route_timeout=0 #経路作成時、スレッドのタイムアウトを行なうため
 
-mid_port = 53010
+mid_port = 53011
 
 
 # 応答の受け取り
@@ -74,6 +74,29 @@ def data_size_clt(size_sentence):#SIZE要求がOKだった場合にデータ量�
             count+=1
         else:
             data_size+=i
+
+def blank_set(sentence,count_time):
+    rep_sentence=[]
+    count=0
+    i=0
+    str=' '
+    print(len(sentence)-1)
+    while i < len(sentence): #カウントするblanck 数
+        if  str == sentence[i]:#空白をカウントしてる。
+            count+=1
+            i+=1
+        if count == count_time:
+            rep_sentence.append(sentence[i]) 
+        i+=1
+    print("rep_sentence",rep_sentence)
+    count=0
+    for i in rep_sentence:#配列を基に返信の文字列を作成
+        if count==0:
+            rep=i
+        else:
+            rep+=i
+        count+=1
+    return rep
 
 # GET(ALL)
 def GET_all(soc, file_name,token_str):
@@ -138,7 +161,8 @@ def receive_server_file(soc,order):
 
 def BCmain():#スレッドでコネクトすれば安定してコネクトできる説
     global route_timeout
-    address=["pbl1a","pbl2a","pbl3a","pbl4a","pbl5a","pbl6a","pbl7a"]
+    #address=["pbl1a","pbl2a","pbl3a","pbl4a","pbl5a","pbl6a","pbl7a"]
+    address=["pbl1","pbl2","pbl3","pbl4"]
     connect=[]
     for i in range(0,len(address)) :
         print(i,address[i])
@@ -161,7 +185,7 @@ def BCth(address):# thはthreadの略
             client_socket.send(command1.encode())
             print("sending:","to",address,command1)
             rep=rec_res(client_socket)
-            mid_name=rep[3:7]#どこから送られてきたのか
+            mid_name=blank_set(rep,1)#どこから送られてきたのか
             if route_timeout==0: #タイムアウトでなければ中間サーバ追加
                 mids.append(mid_name)#通信できた中間サーバを記録
             print(mids)
