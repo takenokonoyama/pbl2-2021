@@ -14,11 +14,11 @@ server_name = sys.argv[1] # サーバのホスト名
 server_port =  int(sys.argv[2]) # サーバのポート
 server_file_name = sys.argv[3] # ファイル名
 token_str = sys.argv[4] # トークン文字列
-mid_name = "localhost" # 中間サーバのホスト名
+mid_name = os.uname()[1] # 中間サーバのホスト名
 rec_file_name = 'received_data.dat' # 受け取ったデータを書き込むファイル
-mids=[]
-size=[]
-data_size=0
+mids=[] #使える中間サーバを格納する
+data_size=0 #GETでデータを分割してDLするためにSIZEでデータ量を格納する
+thread=1 #GET PARTIALでファイルに書き込みする時に順番を崩さないため
 
 mid_port = 53010
 
@@ -53,8 +53,8 @@ def SIZE(soc, file_name):
     soc.close()
 
 def data_size_clt(size_sentence):#SIZE要求がOKだった場合にデータ量を計算する
-    global size
     global data_size
+    size=[]
     count=0
     i=0
     str=' '
@@ -84,21 +84,29 @@ def GET_all(soc, file_name,token_str):
     
     # 応答の受け取り
     rec_res(soc)
-    receive_server_file(soc)
+    receive_server_file(soc,1)
     soc.close()
 
 # GET(PARTIAL)
-def GET_part(soc,file_name,token_str,sB, eB):
+def GET_part_send(soc,file_name,token_str,sB, eB):
     # 要求
     key = pbl2.genkey(token_str) # keyの作成
     msg = f'GET {file_name} {key} PARTIAL {sB} {eB}\n' # 要求メッセージ
     soc.send(msg.encode())
     print('request GET PARTIAL')
-
+  
+def GET_part_rec(soc,order):
     # 応答の受け取り
-    rec_res(soc)
-    receive_server_file_a(soc)#正直ファイルの書き込みは新規じゃなくて追記で書き込んだ方が良い気がする
-    soc.close()    
+    global thread 
+    #スレッド内で書き込みの順番を間違えないように管理するため
+    #以下自分の順番が来るまでデータの受け取りを待機している
+    while(True):
+        if order == thread:#順番が自分の番になったら
+            rec_res(soc)
+            receive_server_file(soc,order)#正直ファイルの書き込みは新規じゃなくて追記で書き込んだ方が良い気がする
+            soc.close()
+            thread+=1
+            break    
 
 # REP
 def REP(soc, file_name, token_str):
@@ -113,115 +121,160 @@ def REP(soc, file_name, token_str):
     soc.close()
 
 # serverからのfileの受け取り
-def receive_server_file(soc):
+def receive_server_file(soc,order):
     # 書き込み用ファイルをオープンして処理
     #   ファイル絡みの例外処理とクローズの処理は書く必要がありません
-    with open(rec_file_name, 'wb') as f: # 'wb' は「バイナリファイルを書き込みモードで」という意味
+    if order==1: #新規ファイル作成
+        com='wb'
+    elif order>=2:#既存ファイルに追記
+        com='ab'
+    with open(rec_file_name, com) as f:
         while True:
             data = soc.recv(BUFSIZE)   # BUFSIZEバイトずつ受信
             if len(data) <= 0:  # 受信したデータがゼロなら、相手からの送信は全て終了
                 break
             f.write(data)  # 受け取ったデータをファイルに書き込む
 
-# serverからのfileの受け取り GETPARTIAL用の追記
-def receive_server_file_a(soc):
-    # 書き込み用ファイルをオープンして処理
-    #   ファイル絡みの例外処理とクローズの処理は書く必要がありません
-    with open(rec_file_name, 'ab') as f: # 'ab' は「バイナリファイルを上書き書き込みモードで」という意味
-        while True:
-            data = soc.recv(BUFSIZE)   # BUFSIZEバイトずつ受信
-            if len(data) <= 0:  # 受信したデータがゼロなら、相手からの送信は全て終了
-                break
-            f.write(data)  # 受け取ったデータをファイルに書き込む
+def BCmain():#スレッドでコネクトすれば安定してコネクトできる説
+    address=["pbl1","pbl2","pbl3","pbl4"]#,"pbl5","pbl6","pbl7"]
+    connect=[]
+    for i in range(0,len(address)) :
+        print(i,address[i])
+        c = threading.Thread(target=BCth, args=(address[i],))
+        connect.append(c)
+        print(connect[i])
+        connect[i].start()
+    for i in range(0,len(address)) :
+        connect[i].join(timeout =10)#タイムアウトをこの辺で実装したい
 
-def BC():#TCPでブロードキャストしようとした力技。ほんとはUDPでしたい。
-    #しかしUDPでするなら全部書き換え必要。TCＰでタイムアウト処理を入れる方が簡単そう。
-    global mid_name
+def BCth(address):# thはthreadの略
     global mids
-    ADDRESS = {"pbl1","pbl2","pbl3","pbl4"}#,"pbl5","pbl6","pbl7"}
-    print("BC")
+    client_socket = socket(AF_INET, SOCK_STREAM) 
     command1 = f'SET {server_name} {server_port}\n'#クライアント以外に送るメッセージ
     command2 = f'IAM {server_name} {server_port}\n'#クライアントで働く中間サーバへ
-    for address in ADDRESS:#絶対タイムアウトいれよう。コネクトを確率それぞれさせてる
-        if client_name != address :
-            try :
-                client_socket = socket(AF_INET, SOCK_STREAM) 
-                client_socket.connect((address, mid_port))
-                client_socket.send(command1.encode())
-                print("sending:","to",address,command1)
-                rep=rec_res(client_socket)
-                mid_name=rep[3:7]#どこから送られてきたのか
-                mids.append(mid_name)#通信できた中間サーバを記録
-                print(mids)
-                print(len(mids))
-                print(rep)
-            except OSError:
-                print("Can't send to",address)
-        else :
-            try :#クライアントの中間サーバは働かない
-                client_socket = socket(AF_INET, SOCK_STREAM) 
-                client_socket.connect((address, mid_port))
-                client_socket.send(command2.encode())
-                print("sending:","to",address,command2)
-            except OSError:
-                print("Can't send to",address)
+    if client_name != address :
+        try :
+            client_socket.connect((address, mid_port))
+            client_socket.send(command1.encode())
+            print("sending:","to",address,command1)
+            rep=rec_res(client_socket)
+            mid_name=rep[3:7]#どこから送られてきたのか
+            mids.append(mid_name)#通信できた中間サーバを記録
+            print(mids)
+            print(len(mids))
+            print(rep)
+        except OSError:
+             print("Can't send to",address)
+    else :
+        try :#クライアントの中間サーバは働かない 
+            client_socket.connect((address, mid_port))
+            client_socket.send(command2.encode())
+            print("sending:","to",address,command2)
+        except OSError:
+            print("Can't send to",address)
 
     client_socket.close()
 
-def BCmain():#スレッドでコネクトすれば安定してコネクトできる説
-    client_socket = socket(AF_INET, SOCK_STREAM) 
-    client_handler = threading.Thread(target=BC, args=(client_socket,))
-    client_handler.start()
 
-def commandMain(key):#key =0 direct server key=1 midserver 
+def commandMain():#key =0 direct server key=1 midserver 
     # SIZE 
-    mid_name=mids[0] #一番早くコネクトした
+    key=len(mids) #使える経路の数で決まる
+    #key =0 direct server key>=1 midserverの数
+
     client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
     if key == 0 :
         client_socket.connect((server_name, server_port)) # サーバのソケットに接続する
-    elif key == 1:
+    elif key >= 1:
+        mid_name=mids[0] #一番早くコネクトした
         client_socket.connect((mid_name, mid_port))  #中間サーバ―と通信する場合
     SIZE(client_socket, server_file_name) # SIZEコマンド
 
-    """
+    
     # GET(ALL)
     # 要求を2つ以上行う場合、ソケットをもう一度作る必要がある
-    client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
     if key == 0 :
+        client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
         client_socket.connect((server_name, server_port)) # サーバのソケットに接続する
+        GET_all(client_socket, server_file_name, token_str) # GET(ALL)コマンド
     elif key == 1:
-        client_socket.connect((mid_name, mid_port))  #中間サーバ―と通信する場合
-    
-    GET_all(client_socket, server_file_name, token_str) # GET(ALL)コマンド
+        start=time.time()
+        client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
+        client_socket.connect((mids[0], mid_port))  #中間サーバ―と通信する場合
+        GET_all(client_socket, server_file_name, token_str) # GET(ALL)コマンド
+        end=time.time()
+        print(end-start)
+    elif key == 2: #別にしたのkey3と分けなくてもいいけど残しとく
+        # GET(PARTIAL)
+        start=time.time()
+        half_size=int(data_size/2)
+        client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
+        client_socket.connect((mids[0], mid_port))  # サーバのソケットに接続する
+        GET_part_send(client_socket, server_file_name, token_str, 0, half_size) # GET(PARTIAL)コマンド
+        GET_part_rec(client_socket,1)
+        client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
+        client_socket.connect((mids[1], mid_port))  # サーバのソケットに接続する
+        GET_part_send(client_socket, server_file_name, token_str,half_size+1, data_size) # GET(PARTIAL)コマンド
+        GET_part_rec(client_socket,2)
+        end=time.time()
+        print(end-start)
+    elif key >= 3:
+        start=time.time()
 
-    """
-    # GET(PARTIAL)
-    os.remove(rec_file_name)#ファイルの削除　追記のためまっさらなファイルがいい。テスト用
-    half_size=int(data_size/2)
-    client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
-    client_socket.connect((mids[0], mid_port))  # サーバのソケットに接続する
-    GET_part(client_socket, server_file_name, token_str, 0, half_size) # GET(PARTIAL)コマンド
-    client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
-    client_socket.connect((mids[1], mid_port))  # サーバのソケットに接続する
-    GET_part(client_socket, server_file_name, token_str,half_size+1, data_size) # GET(PARTIAL)コマンド
+        sep_datas_s=[] #分けたデータの始めを入れる　スレッド用
+        sep_datas_e=[] #分けたデータの最後を入れる　スレッド用
+        for i in range(0,len(mids)):#データ分割
+            #使える転送管理サーバの数に応じて同量でデータ分割
+            #帯域幅とかでデータの量変えられると神
+            if i == 0:
+                separate_data_s=0
+            else :
+                separate_data_s=separate_data_e+1
+            separate_data_e=(i+1)*int((data_size/len(mids)))
+            sep_datas_s.append(separate_data_s)
+            sep_datas_e.append(separate_data_e)
 
+        GET_set_s=[] #get sendをまとめて管理　スレッド用
+        GET_set_r=[] #get recをまとめて管理　スレッド用
+        for i in range(0,len(mids)):
+            order=i+1 #書き込みの分別のため必要.get recで使う
+            client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
+            client_socket.connect((mids[i], mid_port))
+            GETs=threading.Thread(target=GET_part_send, args=(client_socket, server_file_name, token_str,sep_datas_s[i], sep_datas_e[i],))
+            GETr=threading.Thread(target=GET_part_rec, args=(client_socket,order,))
+            GET_set_s.append(GETs)
+            GET_set_r.append(GETr)
+
+        for GETs in GET_set_s:#get sendを一斉に行う　
+            GETs.start()
+        for GETr in GET_set_r:#get recを一斉に行う
+            GETr.start()
+        for GETr in GET_set_r:#get recが全部終わるまで待つ
+            GETr.join()
+        end=time.time()
+        print(end-start)
 
     # REP
     client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
     if key == 0 :
         client_socket.connect((server_name, server_port)) # サーバのソケットに接続する
-    elif key == 1:
+    elif key >= 1:
         client_socket.connect((mid_name, mid_port))  #中間サーバ―と通信する場合
     REP(client_socket, server_file_name, token_str) # REPコマンド
 
 if __name__ == '__main__':
-    BC()
+    if server_name == "localhost":#念のため
+        server_name = os.uname()[1]
+    start=time.time()
+    BCmain()
     print('server_name:',server_name) # サーバ名
     print('server_port:',server_port) # サーバポート番号 
     print()
     print('mid_name:',mid_name) # 中間サーバ名
     print('mid_port:',mid_port) # 中間サーバポート番号 
     print()
-    commandMain(1)
+    end=time.time()
+    print(end-start)
+    print(mids,len(mids))
+    commandMain()
 
     
