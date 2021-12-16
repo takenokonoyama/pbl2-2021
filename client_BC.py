@@ -158,10 +158,8 @@ def receive_server_file(soc,order):
                 break
             f.write(data)  # 受け取ったデータをファイルに書き込む
 
-def BCmain():#スレッドでコネクトすれば安定してコネクトできる説
+def BCmain(address):#スレッドでコネクトすれば安定してコネクトできる説
     global route_timeout
-    #address=["pbl1a","pbl2a","pbl3a","pbl4a","pbl5a","pbl6a","pbl7a"]
-    address=["pbl1","pbl2","pbl3","pbl4"]
     connect=[]
     for i in range(0,len(address)) :
         print(i,address[i])
@@ -280,10 +278,12 @@ def commandMain():#key =0 direct server key=1 midserver
     REP(client_socket, server_file_name, token_str) # REPコマンド
 
 if __name__ == '__main__':
+    address=["pbl1a","pbl2a","pbl3a","pbl4a","pbl5a","pbl6a","pbl7a"]
+    #address=["pbl1","pbl2","pbl3","pbl4"]
     if server_name == "localhost":#念のため
         server_name = os.uname()[1]
     start=time.time()
-    BCmain()
+    BCmain(address)
     print('server_name:',server_name) # サーバ名
     print('server_port:',server_port) # サーバポート番号 
     print()
