@@ -19,6 +19,7 @@ rec_file_name = 'received_data.dat' # 受け取ったデータを書き込むフ
 mids=[] #使える中間サーバを格納する
 data_size=0 #GETでデータを分割してDLするためにSIZEでデータ量を格納する
 thread=1 #GET PARTIALでファイルに書き込みする時に順番を崩さないため
+route_timeout=0 #経路作成時、スレッドのタイムアウトを行なうため
 
 mid_port = 53010
 
@@ -136,7 +137,8 @@ def receive_server_file(soc,order):
             f.write(data)  # 受け取ったデータをファイルに書き込む
 
 def BCmain():#スレッドでコネクトすれば安定してコネクトできる説
-    address=["pbl1","pbl2","pbl3","pbl4"]#,"pbl5","pbl6","pbl7"]
+    global route_timeout
+    address=["pbl1a","pbl2a","pbl3a","pbl4a","pbl5a","pbl6a","pbl7a"]
     connect=[]
     for i in range(0,len(address)) :
         print(i,address[i])
@@ -145,7 +147,8 @@ def BCmain():#スレッドでコネクトすれば安定してコネクトでき
         print(connect[i])
         connect[i].start()
     for i in range(0,len(address)) :
-        connect[i].join(timeout =10)#タイムアウトをこの辺で実装したい
+        connect[i].join(timeout =10)#タイムアウト時間を設定。
+    route_timeout=1 #経路作成のタイムアウト。スレッドは動いたままだが中間サーバの追加は終了
 
 def BCth(address):# thはthreadの略
     global mids
@@ -159,7 +162,8 @@ def BCth(address):# thはthreadの略
             print("sending:","to",address,command1)
             rep=rec_res(client_socket)
             mid_name=rep[3:7]#どこから送られてきたのか
-            mids.append(mid_name)#通信できた中間サーバを記録
+            if route_timeout==0: #タイムアウトでなければ中間サーバ追加
+                mids.append(mid_name)#通信できた中間サーバを記録
             print(mids)
             print(len(mids))
             print(rep)
