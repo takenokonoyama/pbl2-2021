@@ -13,7 +13,7 @@ mid_name = os.uname()[1] # 中間サーバのホスト名あるいはIPアドレ
 server_name = 0 # サーバのホスト名
 server_port = 0 # サーバのポート
 
-mid_port = 53010
+mid_port = 53011
 
 def rec_res(soc):
     # 応答コードの受け取り
@@ -46,10 +46,10 @@ def mid_server(server_name, server_port,sentence,com):#中間サーバとサー�
     print(server_port)
 
     if com =="SET":#サーバのない中間サーバからサーバのある中間サーバへの処理
-        sentence=f"DEC{mid_name}\n"#自分の名前を添えてDECコマンドをサーバのある中間サーバへ
+        sentence=f"DEC {mid_name} \n"#自分の名前を添えてDECコマンドをサーバのある中間サーバへ
         mid_socket.send(sentence.encode())  
         rep = rec_res(mid_socket)
-        rep = f"{rep[0:3]}{mid_name}\n"#返ってきたDECコマンドに自分の名前をつけて返信する。
+        rep = f"{rep[0:3]} {mid_name} \n"#返ってきたDECコマンドに自分の名前をつけて返信する。
     else:#SIZE,GET,REPのサーバへの通信
         mid_socket.send(sentence.encode())  
         rep = rec_res(mid_socket)
@@ -73,14 +73,15 @@ def interact_with_client_TCP(soc):
     com=sentence[0:3] 
     
     if com=="SET":#このコマンドでサーバ名とサーバポート番号が知れる
-        server_name = sentence[4:8]
-        server_port = int(sentence[8:14])
+        server_name = blank_set(sentence,1)
+        server_port = blank_set(sentence,2)
+        server_port = int(server_port)
         print('server_name:',server_name) # サーバ名
         print('server_port:',server_port) # サーバポート番号
         if mid_name == server_name:#SETで送られてきたのがサーバのある中間サーバなら
             print("I am Server")
 
-            rep_sentence=f"DEC{mid_name}\n"#DECコマンドをサーバのホストの名前をつけ返す
+            rep_sentence=f"DEC {mid_name} \n"#DECコマンドをサーバのホストの名前をつけ返す
             soc.send(rep_sentence.encode())
         else :#SETで送られてきたのがサーバのない中間サーバだったら
             rep_sentence=mid_server(server_name, mid_port,sentence,com)
@@ -89,12 +90,14 @@ def interact_with_client_TCP(soc):
             soc.send(rep_sentence.encode())
 
     elif com =="DEC":#基本今はサーバのある中間サーバが他の中間サーバから受け取ったDECコマンドへの処理
-        rep_sentence=f"DEC{mid_name}\n"#サーバのある中間サーバはここだよって返信。DEC以外消されちゃうけど
+        rep_sentence=f"DEC {mid_name} \n"#サーバのある中間サーバはここだよって返信。DEC以外消されちゃうけど
         print('Sending to client: {0}'.format(rep_sentence))
         soc.send(rep_sentence.encode())
     elif com =="IAM" :#クライアントのある中間サーバはサーバの情報を格納するだけ
-        server_name = sentence[4:8]
-        server_port = int(sentence[8:14])
+        server_name = blank_set(sentence,1)
+        server_port = int(blank_set(sentence,2))
+        print('server_name:',server_name,type(server_name)) # サーバ名
+        print('server_port:',server_port,type(server_port)) # サーバポート番号
         pass
         
     else: #SIZE,GET,REPを中間サーバが受け取ったとき
@@ -120,6 +123,29 @@ def openfile(file_name,soc) :
     with open(path,'rb') as f:
         s = f.read()
         soc.send(s)
+
+def blank_set(sentence,count_time):
+    rep_sentence=[]
+    count=0
+    i=0
+    str=' '
+    print(len(sentence)-1)
+    while i < len(sentence): #カウントするblanck 数
+        if  str == sentence[i]:#空白をカウントしてる。
+            count+=1
+            i+=1
+        if count == count_time:
+            rep_sentence.append(sentence[i]) 
+        i+=1
+    print("rep_sentence",rep_sentence)
+    count=0
+    for i in rep_sentence:#配列を基に返信の文字列を作成
+        if count==0:
+            rep=i
+        else:
+            rep+=i
+        count+=1
+    return rep
 
 def main_TCP(): #クライアントと中間サーバの通信
     mid_socket = socket(AF_INET, SOCK_STREAM) # ソケットを作る
