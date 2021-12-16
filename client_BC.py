@@ -161,8 +161,8 @@ def receive_server_file(soc,order):
 
 def BCmain():#スレッドでコネクトすれば安定してコネクトできる説
     global route_timeout
-    #address=["pbl1a","pbl2a","pbl3a","pbl4a","pbl5a","pbl6a","pbl7a"]
-    address=["pbl1","pbl2","pbl3","pbl4"]
+    address=["pbl1a","pbl2a","pbl3a","pbl4a","pbl5a","pbl6a","pbl7a"]
+    #address=["pbl1","pbl2","pbl3","pbl4"]
     connect=[]
     for i in range(0,len(address)) :
         print(i,address[i])
