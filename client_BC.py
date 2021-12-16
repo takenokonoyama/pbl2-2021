@@ -168,7 +168,7 @@ def BCmain(address):#スレッドでコネクトすれば安定してコネク�
         print(connect[i])
         connect[i].start()
     for i in range(0,len(address)) :
-        connect[i].join(timeout = 3*timeout_time)#タイムアウト時間を設定。
+        connect[i].join(timeout = 2*timeout_time)#タイムアウト時間を設定。
     route_timeout=1 #経路作成のタイムアウト。スレッドは動いたままだが中間サーバの追加は終了
 
 def BCth(address):# thはthreadの略
