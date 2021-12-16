@@ -229,7 +229,7 @@ def commandMain():#key =0 direct server key=1 midserver
                 separate_data_s=0
             else :
                 separate_data_s=separate_data_e+1
-            separate_data_e=(i+1)*int((data_size/len(mids)))
+            separate_data_e=int((i+1)*(data_size/len(mids)))
             sep_datas_s.append(separate_data_s)
             sep_datas_e.append(separate_data_e)
 
@@ -276,5 +276,4 @@ if __name__ == '__main__':
     print(end-start)
     print(mids,len(mids))
     commandMain()
-
     
