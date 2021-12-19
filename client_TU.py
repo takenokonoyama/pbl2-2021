@@ -243,9 +243,19 @@ def UDP_BC():
     s.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
     print("BC")
     sentence=f'UDP {server_name} {server_port}\n'# サーバ名メッセージ
-    s.sendto(sentence.encode(),(address,mid_port_UDP))
     print(sentence)
+    sentence+=creData(10000)
+    s.sendto(sentence.encode(),(address,mid_port_UDP))
     s.close()
+
+def creData(size):
+    for i in range(0,size):
+        if i==0:
+            rep="1"
+        else:
+            rep+="1"
+    return rep
+
 
 if __name__ == '__main__':
     if server_name == "localhost":#念のためサーバ名がpblXにしか対応してないから置換
