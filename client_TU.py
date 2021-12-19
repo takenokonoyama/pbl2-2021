@@ -237,18 +237,28 @@ def commandMain():
         client_socket.connect((mid_name, mid_port))  #中間サーバ―と通信する場合
     REP(client_socket, server_file_name, token_str) # REPコマンド
 
-def UDP_BC():
+def UDP_BC():#パケットをブロードキャストしてチェックサムで経路探索
     address="255.255.255.255"
-    s=socket(AF_INET, SOCK_DGRAM)
-    s.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
+    #なぜかブロードキャストできないのだが
+    #ローカルホストには届いてるのが不思議
+    soc=socket(AF_INET, SOCK_DGRAM)
+    soc.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
     print("BC")
     sentence=f'UDP {server_name} {server_port}\n'# サーバ名メッセージ
     print(sentence)
     sentence+=creData(10000)
-    s.sendto(sentence.encode(),(address,mid_port_UDP))
-    s.close()
+    soc.sendto(sentence.encode(),(address,mid_port_UDP))
+    soc.close()
 
-def creData(size):
+def UDP_temp():
+    address=["pbl1a","pbl2a","pbl3a","pbl4a","pbl5a","pbl6a","pbl7a"]#AWS環境
+    soc=socket(AF_INET, SOCK_DGRAM)
+    sentence=creData(10000)
+    for add in address:
+        soc.sendto(sentence.encode(),(add,mid_port_UDP))
+    soc.close()
+
+def creData(size):#sizeの大きさだけデータを作成する関数
     for i in range(0,size):
         if i==0:
             rep="1"
@@ -262,7 +272,7 @@ if __name__ == '__main__':
         server_name = os.uname()[1]
     start=time.time()
     
-    UDP_BC()
+    UDP_temp()
 
     print('server_name:',server_name) # サーバ名
     print('server_port:',server_port) # サーバポート番号 
