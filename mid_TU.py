@@ -168,6 +168,8 @@ def main_UDP():
     # ソケットを用意
     global server_name
     global server_port
+    print(gethostname())
+    print(gethostbyname(gethostname()))
     s = socket(AF_INET, SOCK_DGRAM)
     # バインドしておく
     s.bind(('', mid_port_UDP))
