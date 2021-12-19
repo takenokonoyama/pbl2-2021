@@ -183,8 +183,26 @@ def main_UDP():
         break
     s.close()
 
+def tmp_main_UDP():
+    # ソケットを用意
+    global server_name
+    global server_port
+    print(gethostname())
+    print(gethostbyname(gethostname()))
+    s = socket(AF_INET, SOCK_DGRAM)
+    # バインドしておく
+    s.bind(('', mid_port_UDP))
+    while True:
+        # 受信
+        rec, address = s.recvfrom(8192)
+        rec_sentence=rec.decode()
+        print(rec_sentence, address)
+        print(len(rec_sentence))
+        break
+    s.close()
+
 if __name__ == '__main__':
     print("mid_name:",mid_name)
     print("mid_port:",mid_port)
-    main_UDP()
+    tmp_main_UDP()
     main_TCP()
