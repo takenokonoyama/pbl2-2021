@@ -17,6 +17,7 @@ token_str = sys.argv[4] # トークン文字列
 mid_name = os.uname()[1] # 中間サーバのホスト名
 rec_file_name = 'received_data.dat' # 受け取ったデータを書き込むファイル
 mids=[] #使える中間サーバを格納する
+mids_packet=[]
 data_size=0 #GETでデータを分割してDLするためにSIZEでデータ量を格納する
 thread=1 #GET PARTIALでファイルに書き込みする時に順番を崩さないため
 route_timeout=0 #経路作成時、スレッドのタイムアウトを行なうため
@@ -279,12 +280,14 @@ def thread_UDP_send(soc,address):
     soc.sendto(sentence.encode(),(address,mid_port_UDP))
 def thread_UDP_rec(soc,address):
     global mids
+    global mids_packet
     rec, addr = soc.recvfrom(8192)
     rec_sentence=rec.decode()
     print(rec_sentence[0:10],addr)
     if route_timeout==0:
         mid=blank_set(rec_sentence,1)
         siz=blank_set(rec_sentence,2)
+        mids_packet.append(siz)
         mids.append(mid)
         print(mid,siz)
     else:
@@ -319,4 +322,6 @@ if __name__ == '__main__':
     print(mids,len(mids))
     end=time.time()
     print(end-start)
+    print(mids)
+    print(mids_packet)
     
