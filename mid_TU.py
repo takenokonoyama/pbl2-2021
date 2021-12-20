@@ -13,8 +13,8 @@ mid_name = os.uname()[1] # 中間サーバのホスト名あるいはIPアドレ
 server_name = 0 # サーバのホスト名
 server_port = 0 # サーバのポート
 
-mid_port = 53011
-mid_port_UDP =53012
+mid_port = 53009
+mid_port_UDP =53019
 
 def rec_res(soc):
     # 応答コードの受け取り
@@ -189,20 +189,31 @@ def tmp_main_UDP():
     global server_port
     print(gethostname())
     print(gethostbyname(gethostname()))
-    s = socket(AF_INET, SOCK_DGRAM)
+    print(mid_port_UDP)
+    soc = socket(AF_INET, SOCK_DGRAM)
     # バインドしておく
-    s.bind(('', mid_port_UDP))
+    soc.bind(('', mid_port_UDP))
     while True:
         # 受信
-        rec, address = s.recvfrom(8192)
+        print("OK")
+        rec, addr = soc.recvfrom(8192)
         rec_sentence=rec.decode()
-        print(rec_sentence, address)
+        server_name = blank_set(rec_sentence,1)#rec_sentenceの二単語目を使いたい
+        server_port = int(blank_set(rec_sentence,2))#rec_sentenceの三単語目を使いたい
+        print(rec_sentence[0:10])
+        print(rec_sentence[100:110])
+        print(addr)
         print(len(rec_sentence))
+
+        sentence=f"reply {mid_name} {len(rec_sentence)}\n"
+        soc.sendto(sentence.encode(),(addr[0],addr[1]))
         break
-    s.close()
+
+    soc.close()
 
 if __name__ == '__main__':
-    print("mid_name:",mid_name)
-    print("mid_port:",mid_port)
+    #print("mid_name:",mid_name)
+    #print("mid_port:",mid_port)
     tmp_main_UDP()
+    print(server_name,server_port)
     main_TCP()
