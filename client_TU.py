@@ -253,8 +253,8 @@ def UDP_BC():#パケットをブロードキャストしてチェックサムで
 
 def UDP_BC_tmp():
     global route_timeout
-    #address=["pbl1a","pbl2a","pbl3a","pbl4a","pbl5a","pbl6a","pbl7a"]#AWS環境
-    address=["pbl1","pbl2","pbl3","pbl4"]#local環境
+    address=["pbl1a","pbl2a","pbl3a","pbl4a","pbl5a","pbl6a","pbl7a"]#AWS環境
+    #address=["pbl1","pbl2","pbl3","pbl4"]#local環境
     #上記のUDP_BC()がブロードキャストできないので代わりにスレッドで代用してます
     UDPs=[];UDPr=[]
     print(UDPs,address)
