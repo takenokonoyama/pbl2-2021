@@ -22,8 +22,8 @@ thread=1 #GET PARTIALでファイルに書き込みする時に順番を崩さ�
 route_timeout=0 #経路作成時、スレッドのタイムアウトを行なうため
 timeout_time=10 #経路作成のタイムアウトする時間。変動できるようにした
 
-mid_port = 53011
-mid_port_UDP = 53012
+mid_port = 53009
+mid_port_UDP = 53019
 
 
 # 応答の受け取り
@@ -238,25 +238,58 @@ def commandMain():
     REP(client_socket, server_file_name, token_str) # REPコマンド
 
 def UDP_BC():#パケットをブロードキャストしてチェックサムで経路探索
-    address="255.255.255.255"
+    address= ''
     #なぜかブロードキャストできないのだが
     #ローカルホストには届いてるのが不思議
     soc=socket(AF_INET, SOCK_DGRAM)
     soc.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
-    print("BC")
+    print("BC",address,mid_port_UDP)
     sentence=f'UDP {server_name} {server_port}\n'# サーバ名メッセージ
     print(sentence)
-    sentence+=creData(10000)
+    sentence+=creData(5000)
     soc.sendto(sentence.encode(),(address,mid_port_UDP))
     soc.close()
 
-def UDP_temp():
-    address=["pbl1a","pbl2a","pbl3a","pbl4a","pbl5a","pbl6a","pbl7a"]#AWS環境
+def UDP_BC_tmp():
+    global route_timeout
+    #address=["pbl1a","pbl2a","pbl3a","pbl4a","pbl5a","pbl6a","pbl7a"]#AWS環境
+    address=["pbl1","pbl2","pbl3","pbl4"]#local環境
+    #上記のUDP_BC()がブロードキャストできないので代わりにスレッドで代用してます
+    UDPs=[];UDPr=[]
+    print(UDPs,address)
     soc=socket(AF_INET, SOCK_DGRAM)
-    sentence=creData(10000)
     for add in address:
-        soc.sendto(sentence.encode(),(add,mid_port_UDP))
+        thread=threading.Thread(target=thread_UDP_send, args=(soc,add,))
+        UDPs.append(thread.start())
+    for add in address:
+        thread=threading.Thread(target=thread_UDP_rec, args=(soc,add,))
+        thread.start()
+        UDPr.append(thread)
+    print(UDPr)
+    for r in UDPr:
+        r.join(timeout=3)
+    print("timeout")
+    route_timeout=1
     soc.close()
+
+def thread_UDP_send(soc,address):
+    print("BC",address,mid_port_UDP)
+    sentence=f'UDP {server_name} {server_port} {creData(5000)}\n'# サーバ名メッセージ
+    print(sentence)
+    soc.sendto(sentence.encode(),(address,mid_port_UDP))
+def thread_UDP_rec(soc,address):
+    global mids
+    rec, addr = soc.recvfrom(8192)
+    rec_sentence=rec.decode()
+    print(rec_sentence[0:10],addr)
+    if route_timeout==0:
+        mid=blank_set(rec_sentence,1)
+        siz=blank_set(rec_sentence,2)
+        mids.append(mid)
+        print(mid,siz)
+    else:
+        print("timeout",address)
+
 
 def creData(size):#sizeの大きさだけデータを作成する関数
     for i in range(0,size):
@@ -266,13 +299,12 @@ def creData(size):#sizeの大きさだけデータを作成する関数
             rep+="1"
     return rep
 
-
 if __name__ == '__main__':
     if server_name == "localhost":#念のためサーバ名がpblXにしか対応してないから置換
         server_name = os.uname()[1]
     start=time.time()
     
-    UDP_temp()
+    UDP_BC_tmp()
 
     print('server_name:',server_name) # サーバ名
     print('server_port:',server_port) # サーバポート番号 
