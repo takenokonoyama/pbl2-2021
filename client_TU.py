@@ -275,7 +275,7 @@ def UDP_BC_tmp():
 
 def thread_UDP_send(soc,address):
     print("BC",address,mid_port_UDP)
-    sentence=f'UDP {server_name} {server_port} {creData(5000)}\n'# サーバ名メッセージ
+    sentence=f'UDP {server_name} {server_port} {creData(50000)}\n'# サーバ名メッセージ
     print(sentence)
     soc.sendto(sentence.encode(),(address,mid_port_UDP))
 def thread_UDP_rec(soc,address):

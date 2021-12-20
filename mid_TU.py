@@ -205,7 +205,7 @@ def tmp_main_UDP():
         print(addr)
         print(len(rec_sentence))
 
-        sentence=f"reply {mid_name} {len(rec_sentence)}\n"
+        sentence=f"reply {mid_name} {len(rec_sentence)} \n"
         soc.sendto(sentence.encode(),(addr[0],addr[1]))
         break
 
