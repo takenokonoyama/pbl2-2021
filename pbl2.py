@@ -28,7 +28,6 @@ def genkey(token_str):
     key_str = f"{token_str_bytes.hex()}:{key1.hexdigest()}:{key2.hexdigest()}"
     return key_str
 
-
 def repkey(key_str, filename):
     token_str_hex, key1_hex, _ = key_str.split(":")
     local_key2 = hashlib.sha256(bytes.fromhex(token_str_hex))
