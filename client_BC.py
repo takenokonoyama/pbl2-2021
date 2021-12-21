@@ -175,6 +175,8 @@ def BCmain(address):#スレッドでコネクトすれば安定してコネク�
     for i in range(0,len(address)) :
         connect[i].join(timeout = 2*timeout_time)#タイムアウト時間を設定　パラメータはよく考えるべき
     route_timeout=1 #経路作成のタイムアウト。スレッドは動いたままだが中間サーバの追加は終了
+    
+
 
 def BCth(address):# thはthreadの略
     global mids
@@ -284,8 +286,8 @@ def commandMain():
 
 if __name__ == '__main__':
 
-    address=["pbl1a","pbl2a","pbl3a","pbl4a","pbl5a","pbl6a","pbl7a"]#AWS環境
-    #address=["pbl1","pbl2","pbl3","pbl4"]#local環境
+    #address=["pbl1a","pbl2a","pbl3a","pbl4a","pbl5a","pbl6a","pbl7a"]#AWS環境
+    address=["pbl1","pbl2","pbl3","pbl4"]#local環境
     if server_name == "localhost":#念のためサーバ名がpblXにしか対応してないから置換
         server_name = os.uname()[1]
     start=time.time()
@@ -303,4 +305,3 @@ if __name__ == '__main__':
     print(mids,len(mids))
     end=time.time()
     print(end-start)
-    
