@@ -276,10 +276,10 @@ def UDP_BC_tmp():
 
 def thread_UDP_send(soc,address):
     print("BC",address,mid_port_UDP)
-    sentence=f'UDP {server_name} {server_port} {creData(50)}\n'# サーバ名メッセージ
+    sentence=f'UDP {server_name} {server_port} {creData(10)}\n'# サーバ名メッセージ
     print(sentence)
     try:
-        for i in range(packet_sum):
+        for i in range(packet_sum):#packet_sumの数だけ同じ文字を送ることでパケロス調べる
             soc.sendto(sentence.encode(),(address,mid_port_UDP))
     except OSError:
         pass
