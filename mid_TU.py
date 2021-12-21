@@ -4,6 +4,7 @@
 from socket import *
 import threading  # for Thread()
 import os
+import time
 
 BUFSIZE = 1024 # 受け取る最大のファイルサイズ
 rec_file_name = 'midreceived_data.dat' # 受け取ったデータを書き込むファイル
@@ -12,6 +13,7 @@ mid_name = os.uname()[1] # 中間サーバのホスト名あるいはIPアドレ
 
 server_name = 0 # サーバのホスト名
 server_port = 0 # サーバのポート
+packet_sum = 10000
 
 mid_port = 53009
 mid_port_UDP =53019
@@ -192,23 +194,29 @@ def tmp_main_UDP():
     print(mid_port_UDP)
     soc = socket(AF_INET, SOCK_DGRAM)
     # バインドしておく
+    count=0
     soc.bind(('', mid_port_UDP))
     while True:
         # 受信
         print("OK")
         rec, addr = soc.recvfrom(8192)
         rec_sentence=rec.decode()
-        server_name = blank_set(rec_sentence,1)#rec_sentenceの二単語目を使いたい
-        server_port = int(blank_set(rec_sentence,2))#rec_sentenceの三単語目を使いたい
+        if count==0:
+            s_time=time.time()
+            server_name = blank_set(rec_sentence,1)#rec_sentenceの二単語目を使いたい
+            server_port = int(blank_set(rec_sentence,2))#rec_sentenceの三単語目を使いたい
+        count+=1
         print(rec_sentence[0:10])
         print(rec_sentence[100:110])
         print(addr)
         print(len(rec_sentence))
+        el_time=time.time()-s_time
+        print(el_time)
+        if count == packet_sum  or el_time > 5:
+            break
 
-        sentence=f"reply {mid_name} {len(rec_sentence)} \n"
-        soc.sendto(sentence.encode(),(addr[0],addr[1]))
-        break
-
+    sentence=f"reply {mid_name} {packet_sum} \n"
+    soc.sendto(sentence.encode(),(addr[0],addr[1]))
     soc.close()
 
 if __name__ == '__main__':

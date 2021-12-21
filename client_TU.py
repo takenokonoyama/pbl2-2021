@@ -22,6 +22,7 @@ data_size=0 #GETでデータを分割してDLするためにSIZEでデータ量�
 thread=1 #GET PARTIALでファイルに書き込みする時に順番を崩さないため
 route_timeout=0 #経路作成時、スレッドのタイムアウトを行なうため
 timeout_time=10 #経路作成のタイムアウトする時間。変動できるようにした
+packet_sum=10000#送るバケット数
 
 mid_port = 53009
 mid_port_UDP = 53019
@@ -253,8 +254,8 @@ def UDP_BC():#パケットをブロードキャストしてチェックサムで
 
 def UDP_BC_tmp():
     global route_timeout
-    address=["pbl1a","pbl2a","pbl3a","pbl4a","pbl5a","pbl6a","pbl7a"]#AWS環境
-    #address=["pbl1","pbl2","pbl3","pbl4"]#local環境
+    #address=["pbl1a","pbl2a","pbl3a","pbl4a","pbl5a","pbl6a","pbl7a"]#AWS環境
+    address=["pbl1","pbl2","pbl3","pbl4"]#local環境
     #上記のUDP_BC()がブロードキャストできないので代わりにスレッドで代用してます
     UDPs=[];UDPr=[]
     print(UDPs,address)
@@ -275,9 +276,13 @@ def UDP_BC_tmp():
 
 def thread_UDP_send(soc,address):
     print("BC",address,mid_port_UDP)
-    sentence=f'UDP {server_name} {server_port} {creData(50000)}\n'# サーバ名メッセージ
+    sentence=f'UDP {server_name} {server_port} {creData(50)}\n'# サーバ名メッセージ
     print(sentence)
-    soc.sendto(sentence.encode(),(address,mid_port_UDP))
+    try:
+        for i in range(packet_sum):
+            soc.sendto(sentence.encode(),(address,mid_port_UDP))
+    except OSError:
+        pass
 def thread_UDP_rec(soc,address):
     global mids
     global mids_packet
