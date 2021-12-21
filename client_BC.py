@@ -150,7 +150,7 @@ def BC():#TCPでブロードキャストしようとした力技。ほんとはU
                 client_socket.send(command1.encode())
                 print("sending:","to",address,command1)
                 rep=rec_res(client_socket)
-                mid_name=rep[3:7]#どこから送られてきたのか
+                mid_name=rep[3:7] #どこから送られてきたのか
                 mids.append(mid_name)#通信できた中間サーバを記録
                 print(mids)
                 print(len(mids))
@@ -216,12 +216,17 @@ def commandMain(key):#key =0 direct server key=1 midserver
 
 if __name__ == '__main__':
     BC()
+
     print('server_name:',server_name) # サーバ名
     print('server_port:',server_port) # サーバポート番号 
+    
     print()
+    
     print('mid_name:',mid_name) # 中間サーバ名
     print('mid_port:',mid_port) # 中間サーバポート番号 
+    
     print()
+    
     commandMain(1)
 
     

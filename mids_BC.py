@@ -45,7 +45,7 @@ def mid_server(server_name, server_port,sentence,com):#中間サーバとサー�
     print(server_name)
     print(server_port)
 
-    if com =="SET":#サーバのない中間サーバからサーバのある中間サーバへの処理
+    if com=="SET":#サーバのない中間サーバからサーバのある中間サーバへの処理
         sentence=f"DEC{mid_name}\n"#自分の名前を添えてDECコマンドをサーバのある中間サーバへ
         mid_socket.send(sentence.encode())  
         rep = rec_res(mid_socket)
@@ -64,8 +64,10 @@ def mid_server(server_name, server_port,sentence,com):#中間サーバとサー�
     return rep
 
 def interact_with_client_TCP(soc):
+    
     global server_name
     global server_port
+
     print("inter")
     sentence = rec_res(soc)
     print('Received: {0}'.format(sentence)) 
@@ -125,7 +127,9 @@ def main_TCP(): #クライアントと中間サーバの通信
     mid_socket = socket(AF_INET, SOCK_STREAM) # ソケットを作る
     mid_socket.bind(('', mid_port))
     mid_socket.listen(6) #並列で6台まで処理できる
+    
     print('The server is ready to receive by TCP')
+
     while True:
         # クライアントからの接続があったら、それを受け付け、
         # そのクライアントとの通信のためのソケットを作る
