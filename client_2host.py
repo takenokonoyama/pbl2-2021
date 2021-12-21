@@ -130,7 +130,7 @@ def rooting_1host(my_port, ADDRESS):
             サーバ名,任意データ,TTL,参照する経由番号,パケットの種類(Root(ルーティング用パケット) or Com(コマンド用パケット)), 
             送信用(req)or応答用(rep), クライアントのポート番号)
             '''
-            info_pack = [my_name, ad, 'none',server_name , data, TTL, relay_num,'Root','req', my_port]
+            info_pack = [my_name, ad, 'none',server_name , data, TTL, relay_num,'Root', 'req', my_port]
             info_pack = pickle.dumps(info_pack) # 配列全体をバイト列に変換
             start_time = time.time() # 時間計測開始
             client_socket.send(info_pack) # データ配列の送信
@@ -226,12 +226,16 @@ def SIZE_cmd(client_socket, my_port, RootTable):
 
 # GETコマンド
 def GET_cmd(client_socket, my_port, RootTable, token_str, server_file_name):
+    
+    # GET要求
     GET_pack = [RootTable[0][1],RootTable[0][2],RootTable[0][3],RootTable[0][4],\
                 'GET', GET_all(server_file_name, token_str), 1, 'Com', 'req', my_port]
     print('GET_packet', GET_pack)
     GET_pack = pickle.dumps(GET_pack) # 配列全体をバイト列に変換
     client_socket.send(GET_pack) # データ配列の送信
     
+
+
     # サーバからの応答(最短経路をたどる)の受け取り
     client_socket_recv = socket(AF_INET, SOCK_STREAM)
     client_socket_recv.bind(('', my_port))

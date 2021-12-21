@@ -57,7 +57,7 @@ def relay_packet(connect_soc):
         if(pack[8] == 'req'):
             # TTL(pack[5])==2ならば、転送管理サーバへ送信
             if(pack[5] == 2):
-                # 経由するホストが増えるのでrelay_num(info_pack[6])をインクリメント
+                # 経由するホストが増えるのでrelay_num(pack[6])をインクリメント
                 pack[6] += 1 
                 pack[5] -= 1 # TTLをデクリメント
                 mid_name = pack[pack[6]]
@@ -106,7 +106,7 @@ def relay_packet(connect_soc):
                 soc_to_mid.connect((mid_name, mid_port))
                 pack = pickle.dumps(pack) # 配列全体をバイト列に変換
                 soc_to_mid.send(pack) # データ配列の送信
-
+    
     # ----コマンド用のパケットだった場合
     elif(pack[7] == 'Com'):
         server_name = pack[3] # パケットからサーバ名の取得
