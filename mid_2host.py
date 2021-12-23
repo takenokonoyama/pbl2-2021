@@ -5,9 +5,10 @@ import sys
 import threading  # for Thread()
 import os
 import pickle
-
+import datetime
 BUFSIZE = 1024 # 受け取る最大のファイルサイズ
 rec_file_name = 'midreceived_data.dat' # 受け取ったデータを書き込むファイル
+rec_count = 0
 # mid_name = sys.argv[1]  # 中間サーバのホスト名あるいはIPアドレスを表す文字列
 # mid_port = sys.argv[2] # 中間サーバのポート
 # server_name = sys.argv[3] # サーバのホスト名
@@ -15,7 +16,7 @@ rec_file_name = 'midreceived_data.dat' # 受け取ったデータを書き込む
 
 cl_name = '' # クライアント名
 cl_port = 53602 # クライアントのポート番号
-my_name = 'pbl2' # 自身のサーバ名
+my_name = os.uname()[1] # 自身のサーバ名
 my_port =  53601 # 自身(転送管理サーバ)のポート
 mid_port = my_port # 転送管理サーバのポートは共通
 server_name = '' # サーバ名
@@ -33,10 +34,10 @@ def rec_res(soc):
     print('received response')
     return rec_str
 
-def receive_server_file(soc):
+def receive_server_file(soc, file_name):
     # 書き込み用ファイルをオープンして処理
     #   ファイル絡みの例外処理とクローズの処理は書く必要がありません
-    with open(rec_file_name,'wb') as f: # 'wb' は「バイナリファイルを書き込みモードで」という意味
+    with open(file_name,'wb') as f: # 'wb' は「バイナリファイルを書き込みモードで」という意味
         while True:
             data = soc.recv(BUFSIZE)   # BUFSIZEバイトずつ受信
             if len(data) <= 0:  # 受信したデータがゼロなら、相手からの送信は全て終了
@@ -44,7 +45,7 @@ def receive_server_file(soc):
             f.write(data)  # 受け取ったデータをファイルに書き込む
 
 def relay_packet(connect_soc):
-
+    global rec_count
     pack = connect_soc.recv(1024)
     pack = pickle.loads(pack) # 配列の受け取り
 
@@ -57,7 +58,7 @@ def relay_packet(connect_soc):
         if(pack[8] == 'req'):
             # TTL(pack[5])==2ならば、転送管理サーバへ送信
             if(pack[5] == 2):
-                # 経由するホストが増えるのでrelay_num(pack[6])をインクリメント
+                # 経由するホストが増えるのでrelay_num(info_pack[6])をインクリメント
                 pack[6] += 1 
                 pack[5] -= 1 # TTLをデクリメント
                 mid_name = pack[pack[6]]
@@ -79,13 +80,24 @@ def relay_packet(connect_soc):
             # TTL==0ならばその転送管理サーバはサーバと同じ名前をもつ
             elif(pack[5] == 0):
                 pack[6] -= 1
-                mid_name = pack[pack[6]] # 参照番号1 or 2を見る
-                print(mid_name)
-                soc_to_mid = socket(AF_INET, SOCK_STREAM)
-                soc_to_mid.connect((mid_name, mid_port))
-                pack[8] = 'rep' # パケットを応答用に変更
-                pack = pickle.dumps(pack) # 配列全体をバイト列に変換
-                soc_to_mid.send(pack) # データ配列の送信
+                # relay_num == 0 ならばサーバと直接通信のルーティング
+                if(pack[6] == 0):
+                    cl_name = pack[pack[6]]
+                    cl_port = pack[9]
+                    soc_to_cl = socket(AF_INET, SOCK_STREAM)
+                    soc_to_cl.connect((cl_name, cl_port))
+                    pack[8] = 'rep' # パケットを応答用に変更
+                    pack = pickle.dumps(pack) # 配列全体をバイト列に変換
+                    soc_to_cl.send(pack) # データ配列の送信
+
+                else:
+                    mid_name = pack[pack[6]] # 参照番号1 or 2を見る
+                    print(mid_name)
+                    soc_to_mid = socket(AF_INET, SOCK_STREAM)
+                    soc_to_mid.connect((mid_name, mid_port))
+                    pack[8] = 'rep' # パケットを応答用に変更
+                    pack = pickle.dumps(pack) # 配列全体をバイト列に変換
+                    soc_to_mid.send(pack) # データ配列の送信
 
         elif(pack[8] == 'rep'):
             if(pack[6] == 1):
@@ -106,7 +118,7 @@ def relay_packet(connect_soc):
                 soc_to_mid.connect((mid_name, mid_port))
                 pack = pickle.dumps(pack) # 配列全体をバイト列に変換
                 soc_to_mid.send(pack) # データ配列の送信
-    
+
     # ----コマンド用のパケットだった場合
     elif(pack[7] == 'Com'):
         server_name = pack[3] # パケットからサーバ名の取得
@@ -120,9 +132,11 @@ def relay_packet(connect_soc):
 
                 soc_to_ser.send(pack[5].encode())
                 sentence = rec_res(soc_to_ser)
+                file_name = str(rec_count)+rec_file_name
+                rec_count+=1
                 if(pack[4] == 'GET'):
                     print('received server file')
-                    receive_server_file(soc_to_ser)
+                    receive_server_file(soc_to_ser, file_name)
                 print(sentence)
 
                 # ----クライアントとのやり取り----
@@ -131,8 +145,10 @@ def relay_packet(connect_soc):
                 soc_to_cl = socket(AF_INET, SOCK_STREAM)
                 soc_to_cl.connect((cl_name, cl_port))  
                 soc_to_cl.send(sentence.encode())
+                
                 if(pack[4] == 'GET'):
-                    openfile(rec_file_name, soc_to_cl)
+                    print('sending file to',cl_name, file_name)
+                    openfile(file_name, soc_to_cl)
             else:
                 # 転送管理サーバへパケットを送信
                 if(pack[6] == 1):
@@ -151,9 +167,12 @@ def relay_packet(connect_soc):
                     soc_to_ser.connect((server_name, server_port))
                     soc_to_ser.send(pack[5].encode())
                     sentence = rec_res(soc_to_ser)
+                    file_name = str(rec_count)+rec_file_name
+                    rec_count+=1
                     if(pack[4] == 'GET'):
-                        receive_server_file(soc_to_ser)                        
-
+                        print('received server file')
+                        receive_server_file(soc_to_ser, file_name)
+                    print(sentence)       
                     # ----転送管理サーバとのやり取り----
                     mid_name = pack[pack[6]]
                     soc_to_mid = socket(AF_INET, SOCK_STREAM)
@@ -166,14 +185,18 @@ def relay_packet(connect_soc):
                     if(pack[4] == 'GET'):
                         sentence = rec_res(soc_to_mid)
                         print(sentence)
-                        openfile(rec_file_name,soc_to_mid)
+                        print('sending fileto',mid_name, file_name)
+                        openfile(file_name, soc_to_mid)
 
         elif(pack[8] == 'rep'): # パケットが応答用
             if(pack[6] == 1):
+                file_name = str(rec_count)+rec_file_name
+                rec_count+=1
                 if(pack[4] == 'GET'):                        
                     sentence = 'Received packet\n'
                     connect_soc.send(sentence.encode())
-                    receive_server_file(connect_soc)
+                    receive_server_file(connect_soc, file_name)
+                    
                 cl_name = pack[0]
                 cl_port = pack[9]
                 sentence = pack[5] # 
@@ -181,14 +204,13 @@ def relay_packet(connect_soc):
                 soc_to_cl.connect((cl_name, cl_port))  
                 soc_to_cl.send(sentence.encode())
                 if(pack[4] == 'GET'):
-                    openfile(rec_file_name, soc_to_cl)
+                    print('sending fileto',cl_name, file_name)
+                    openfile(file_name, soc_to_cl)
             
 def openfile(file_name, soc) :
-    path = os.getcwd()
-    path +="/"
-    path +=file_name
+
     # print(path)
-    with open(path, 'rb') as f:
+    with open(file_name, 'rb') as f:
         s = f.read()
         soc.send(s) # 1文字ずつ送る
         
