@@ -169,7 +169,6 @@ def main_TCP(): #クライアントと中間サーバの通信
         client_handler.start()  # スレッドを開始
 
 def main_UDP():
-    global thread
     mid_socket = socket(AF_INET, SOCK_DGRAM)
     print('The server is ready to receive by UDP')
     mid_socket.bind(('', mid_port_UDP))
@@ -186,7 +185,7 @@ def interact_with_client_UDP(soc):
         # 受信
         rec, addr = soc.recvfrom(8192)
         rec_sentence=rec.decode()
-        if count==0:
+        if count ==0 :
             s_time=time.time()
             server_name = blank_set(rec_sentence,1)#rec_sentenceの二単語目を使いたい
             server_port = int(blank_set(rec_sentence,2))#rec_sentenceの三単語目を使いたい
@@ -194,8 +193,9 @@ def interact_with_client_UDP(soc):
             print(server_name,server_port, packet_sum)
         count+=1
         el_time=time.time()-s_time
-        if count >= packet_sum  or el_time > 5:
+        if count >= int(packet_sum/2)  or el_time > 5:
             break
+
 
     if server_name!=mid_name:
         sentence = f'UDP {server_name} {server_port} {packet_sum} \n'
@@ -212,16 +212,17 @@ def interact_with_client_UDP(soc):
         mid=blank_set(rec_sentence,1)
         siz=int(blank_set(rec_sentence,2))
         print(count,siz)
-
-        sentence = f"reply {mid_name} {int((count+siz)/2)} \n"
+        count=int((count+siz)/2)
     else:    
-        sentence = f"reply {mid_name} {count} \n"
         print("im server")
     
+    sentence = f"reply {mid_name} {count} \n"
+    print("sentence:",sentence)
     print("st sendto",addr[0],addr[1])
 
     soc.sendto(sentence.encode(),(addr[0],addr[1]))
     print("fi sendto")
+    print(mid_name)
 
 
 if __name__ == '__main__':
