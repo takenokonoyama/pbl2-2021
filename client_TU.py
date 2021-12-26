@@ -18,11 +18,13 @@ mid_name = os.uname()[1] # 中間サーバのホスト名
 rec_file_name = 'received_data.dat' # 受け取ったデータを書き込むファイル
 mids=[] #使える中間サーバを格納する
 mids_packet=[]
+mids_time=[]#中間サーバと繋がった時間を格納する
 data_size=0 #GETでデータを分割してDLするためにSIZEでデータ量を格納する
 thread=1 #GET PARTIALでファイルに書き込みする時に順番を崩さないため
 route_timeout=0 #経路作成時、スレッドのタイムアウトを行なうため
 timeout_time=10 #経路作成のタイムアウトする時間。変動できるようにした
 packet_sum=10000#送るバケット数
+routing_time=10#経路作成する時間
 
 mid_port = 53009
 mid_port_UDP = 53019
@@ -245,13 +247,7 @@ def UDP_BC():#パケットをブロードキャストしてチェックサムで
     #ローカルホストには届いてるのが不思議
     soc=socket(AF_INET, SOCK_DGRAM)
     soc.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
-    print("BC",address,mid_port_UDP)
-    sentence=f'UDP {server_name} {server_port}\n'# サーバ名メッセージ
-    print(sentence)
-    sentence+=creData(5000)
-    soc.sendto(sentence.encode(),(address,mid_port_UDP))
-    soc.close()
-
+    
 def UDP_BC_tmp():
     global route_timeout
     #address=["pbl1a","pbl2a","pbl3a","pbl4a","pbl5a","pbl6a","pbl7a"]#AWS環境
@@ -260,6 +256,7 @@ def UDP_BC_tmp():
     UDPs=[];UDPr=[]
     print(UDPs,address)
     soc=socket(AF_INET, SOCK_DGRAM)
+    print(AF_INET, SOCK_DGRAM)
     for add in address:
         thread=threading.Thread(target=thread_UDP_send, args=(soc,add,))
         UDPs.append(thread.start())
@@ -267,34 +264,41 @@ def UDP_BC_tmp():
         thread=threading.Thread(target=thread_UDP_rec, args=(soc,add,))
         thread.start()
         UDPr.append(thread)
-    print(UDPr)
     for r in UDPr:
-        r.join(timeout=3)
+        r.join(timeout=routing_time)
     print("timeout")
     route_timeout=1
+
     soc.close()
 
 def thread_UDP_send(soc,address):
     print("BC",address,mid_port_UDP)
-    sentence=f'UDP {server_name} {server_port} {creData(10)}\n'# サーバ名メッセージ
+    sentence=f'UDP {server_name} {server_port} {packet_sum} \n'# サーバ名メッセージ
     print(sentence)
     try:
         for i in range(packet_sum):#packet_sumの数だけ同じ文字を送ることでパケロス調べる
             soc.sendto(sentence.encode(),(address,mid_port_UDP))
     except OSError:
         pass
+    
 def thread_UDP_rec(soc,address):
     global mids
     global mids_packet
+    global mids_time
+    s_time=time.time()
     rec, addr = soc.recvfrom(8192)
+    print("rec data")
     rec_sentence=rec.decode()
     print(rec_sentence[0:10],addr)
     if route_timeout==0:
         mid=blank_set(rec_sentence,1)
-        siz=blank_set(rec_sentence,2)
-        mids_packet.append(siz)
-        mids.append(mid)
-        print(mid,siz)
+        siz=int(blank_set(rec_sentence,2))
+        if mid!= server_name :
+            mids_packet.append(siz)
+            mids.append(mid)
+            m_t=time.time()-s_time
+            mids_time.append(m_t)
+            print(mid,siz,m_t)
     else:
         print("timeout",address)
 
@@ -329,4 +333,5 @@ if __name__ == '__main__':
     print(end-start)
     print(mids)
     print(mids_packet)
+    print(mids_time)
     

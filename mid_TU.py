@@ -14,6 +14,8 @@ mid_name = os.uname()[1] # 中間サーバのホスト名あるいはIPアドレ
 server_name = 0 # サーバのホスト名
 server_port = 0 # サーバのポート
 packet_sum = 10000
+routing_time=10#経路作成する時間
+thread = 0
 
 mid_port = 53009
 mid_port_UDP =53019
@@ -167,61 +169,67 @@ def main_TCP(): #クライアントと中間サーバの通信
         client_handler.start()  # スレッドを開始
 
 def main_UDP():
-    # ソケットを用意
-    global server_name
-    global server_port
-    print(gethostname())
-    print(gethostbyname(gethostname()))
-    s = socket(AF_INET, SOCK_DGRAM)
-    # バインドしておく
-    s.bind(('', mid_port_UDP))
-    while True:
-        # 受信
-        rec, address = s.recvfrom(8192)
-        rec_sentence=rec.decode()
-        print(rec_sentence, address)
-        server_name = blank_set(rec_sentence,1)#rec_sentenceの二単語目を使いたい
-        server_port = int(blank_set(rec_sentence,2))#rec_sentenceの三単語目を使いたい
-        break
-    s.close()
+    global thread
+    mid_socket = socket(AF_INET, SOCK_DGRAM)
+    print('The server is ready to receive by UDP')
+    mid_socket.bind(('', mid_port_UDP))
+    interact_with_client_UDP(mid_socket)
+    mid_socket.close()
 
-def tmp_main_UDP():
+def interact_with_client_UDP(soc):
     # ソケットを用意
     global server_name
     global server_port
-    print(gethostname())
-    print(gethostbyname(gethostname()))
-    print(mid_port_UDP)
-    soc = socket(AF_INET, SOCK_DGRAM)
-    # バインドしておく
+
     count=0
-    soc.bind(('', mid_port_UDP))
     while True:
         # 受信
-        print("OK")
         rec, addr = soc.recvfrom(8192)
         rec_sentence=rec.decode()
         if count==0:
             s_time=time.time()
             server_name = blank_set(rec_sentence,1)#rec_sentenceの二単語目を使いたい
             server_port = int(blank_set(rec_sentence,2))#rec_sentenceの三単語目を使いたい
+            packet_sum  = int(blank_set(rec_sentence,3))
+            print(server_name,server_port, packet_sum)
         count+=1
-        print(rec_sentence[0:10])
-        print(rec_sentence[100:110])
-        print(addr)
-        print(len(rec_sentence))
         el_time=time.time()-s_time
-        print(el_time)
-        if count == packet_sum  or el_time > 5:
+        if count >= packet_sum  or el_time > 5:
             break
 
-    sentence=f"reply {mid_name} {packet_sum} \n"
+    if server_name!=mid_name:
+        sentence = f'UDP {server_name} {server_port} {packet_sum} \n'
+        try:
+            for i in range (packet_sum):#packet_sumの数だけ同じ文字を送ることでパケロス調べる
+                soc.sendto(sentence.encode(),(server_name,mid_port_UDP))
+        except OSError:
+            pass
+        
+        print("lts server ")
+
+        rec, addr = soc.recvfrom(8192)
+        rec_sentence=rec.decode()
+        mid=blank_set(rec_sentence,1)
+        siz=int(blank_set(rec_sentence,2))
+        print(count,siz)
+
+        sentence = f"reply {mid_name} {int((count+siz)/2)} \n"
+    else:    
+        sentence = f"reply {mid_name} {count} \n"
+        print("im server")
+    
+    print("st sendto",addr[0],addr[1])
+
     soc.sendto(sentence.encode(),(addr[0],addr[1]))
-    soc.close()
+    print("fi sendto")
+
 
 if __name__ == '__main__':
     #print("mid_name:",mid_name)
     #print("mid_port:",mid_port)
-    tmp_main_UDP()
+    main_UDP()
+    if mid_name == server_name:
+        while True :
+            main_UDP()
     print(server_name,server_port)
     main_TCP()
