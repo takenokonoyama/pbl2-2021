@@ -17,20 +17,13 @@ token_str = sys.argv[4] # トークン文字列
 mid_name = os.uname()[1] # 中間サーバのホスト名
 rec_file_name = 'received_data.dat' # 受け取ったデータを書き込むファイル
 mids=[] #使える中間サーバを格納する
-mids_packet=[]
-mids_time=[]#中間サーバと繋がった時間を格納する
 data_size=0 #GETでデータを分割してDLするためにSIZEでデータ量を格納する
 thread=1 #GET PARTIALでファイルに書き込みする時に順番を崩さないため
 route_timeout=0 #経路作成時、スレッドのタイムアウトを行なうため
 timeout_time=10 #経路作成のタイムアウトする時間。変動できるようにした
-packet_sum=10000#送るバケット数
-routing_time=10#経路作成する時間
 
-mid_port = 53009
-mid_port_UDP = 53019
+mid_port = 53011
 
-Comp_start=0
-Comp_end=0
 
 # 応答の受け取り
 def rec_res(soc):
@@ -91,8 +84,6 @@ def blank_set(sentence,count_time):#文字列の一部分を取り出すため�
     i=0
     str=' '
     print(len(sentence)-1)
-    #1,配列に文字を格納してから、2,配列を基に返信の文字列を作成
-    #1,配列に文字を格納
     while i < len(sentence): #カウントするblanck 数
         if  str == sentence[i]:#空白をカウントしてる。
             count+=1
@@ -100,8 +91,7 @@ def blank_set(sentence,count_time):#文字列の一部分を取り出すため�
         if count == count_time:
             rep_sentence.append(sentence[i]) 
         i+=1
-        
-    #2,配列を基に返信の文字列を作成
+
     count=0
     for i in rep_sentence:#配列を基に返信の文字列を作成
         if count==0:
@@ -171,6 +161,57 @@ def receive_server_file(soc,order):
             if len(data) <= 0:  # 受信したデータがゼロなら、相手からの送信は全て終了
                 break
             f.write(data)  # 受け取ったデータをファイルに書き込む
+
+def BCmain(address):#スレッドでコネクトすれば安定してコネクトできる説
+    global route_timeout #経路作成時のタイムアウトをスレッドで実行するためのもの　0 :中間サーバの追加可能 1:中間サーバの追加をやめる
+    #時間制限で中間サーバを追加する理由は帯域幅が極端に狭い経路を排除したいから
+    connect=[]#帯域幅が広めの中間サーバを保存する配列
+    for i in range(0,len(address)) :
+        print(i,address[i])
+        c = threading.Thread(target=BCth, args=(address[i],))
+        connect.append(c)
+        print(connect[i])
+        connect[i].start()#配列に格納次第スレッド開始
+    for i in range(0,len(address)) :
+        connect[i].join(timeout = 2*timeout_time)#タイムアウト時間を設定　パラメータはよく考えるべき
+    route_timeout=1 #経路作成のタイムアウト。スレッドは動いたままだが中間サーバの追加は終了
+    
+
+
+def BCth(address):# thはthreadの略
+    global mids
+    global timeout_time #タイムアウトの時間をスレッドの中からでも変更できるようにしたいから
+    client_socket = socket(AF_INET, SOCK_STREAM) 
+    command1 = f'SET {server_name} {server_port}\n'#クライアント以外で働く中間サーバへ送るメッセージ
+    command2 = f'IAM {server_name} {server_port}\n'#クライアントで働く中間サーバへ
+    if client_name != address :
+        try :
+            start_time=time.time()
+            client_socket.connect((address, mid_port))
+            client_socket.send(command1.encode())
+            print("sending:","to",address,command1)
+            rep=rec_res(client_socket)
+            mid_name=blank_set(rep,1)#どこから送られてきたのか
+            if route_timeout==0: #タイムアウトでなければ中間サーバ追加
+                if len(mids) == 0:#一番最初にconnect出来た時
+                    timeout_time=time.time()-start_time
+                    #ここで一番最初にconnectした中間サーバを基準にconnectのタイムアウト時間を設定している
+                    print(timeout_time)
+                mids.append(mid_name)#時間内に通信できた中間サーバを記録
+                print(mids)
+                print(len(mids))
+                print(rep)
+        except OSError:
+             print("Can't send to",address)
+    else :
+        try :#クライアントの中間サーバは働かない 
+            client_socket.connect((address, mid_port))
+            client_socket.send(command2.encode())
+            print("sending:","to",address,command2)
+        except OSError:
+            print("Can't send to",address)
+
+    client_socket.close()
 
 
 def commandMain(): 
@@ -254,71 +295,6 @@ def commandMain():
     Comp_end=time.time()
     print("Comp_end",Comp_end)
 
-
-def UDP_BC_tmp(address):
-    global route_timeout
-
-    #上記のUDP_BC()がブロードキャストできないので代わりにスレッドで代用してます
-    UDPs=[];UDPr=[]
-    print(UDPs,address)
-    soc=socket(AF_INET, SOCK_DGRAM)
-    print(AF_INET, SOCK_DGRAM)
-    thread_UDP_send(soc,server_name)
-    for add in address:
-        if add != server_name :
-            thread_UDP_send(soc,add)
-    for add in address:
-        thread=threading.Thread(target=thread_UDP_rec, args=(soc,add,))
-        thread.start()
-        UDPr.append(thread)
-    
-    for r in UDPr:
-        r.join(timeout=routing_time)
-    print("timeout")
-    route_timeout=1
-
-    soc.close()
-
-def thread_UDP_send(soc,address):
-    print("BC",address,mid_port_UDP)
-    sentence=f'UDP {server_name} {server_port} {packet_sum} \n'# サーバ名メッセージ
-    print(sentence)
-    try:
-        for i in range(packet_sum):#packet_sumの数だけ同じ文字を送ることでパケロス調べる
-            soc.sendto(sentence.encode(),(address,mid_port_UDP))
-    except OSError:
-        pass
-    
-def thread_UDP_rec(soc,address):
-    global mids
-    global mids_packet
-    global mids_time
-    s_time=time.time()
-    rec, addr = soc.recvfrom(8192)
-    print("rec data")
-    rec_sentence=rec.decode()
-    print(rec_sentence[0:10],addr)
-    if route_timeout==0:
-        mid=blank_set(rec_sentence,1)
-        siz=int(blank_set(rec_sentence,2))
-        if mid!= server_name :
-            mids_packet.append(siz)
-            mids.append(mid)
-            m_t=time.time()-s_time
-            mids_time.append(m_t)
-            print(mid,siz,m_t)
-    else:
-        print("timeout",address)
-
-
-def creData(size):#sizeの大きさだけデータを作成する関数
-    for i in range(0,size):
-        if i==0:
-            rep="1"
-        else:
-            rep+="1"
-    return rep
-
 if __name__ == '__main__':
     if server_name == "localhost":#念のためサーバ名がpblXにしか対応してないから置換
         server_name = os.uname()[1]
@@ -327,7 +303,7 @@ if __name__ == '__main__':
     #address=["pbl1a","pbl2a","pbl3a","pbl4a","pbl5a","pbl6a","pbl7a"]#AWS環境
     address=["pbl1","pbl2","pbl3","pbl4"]#local環境
 
-    UDP_BC_tmp(address)
+    BCmain(address)
 
     print('server_name:',server_name) # サーバ名
     print('server_port:',server_port) # サーバポート番号 
@@ -344,10 +320,7 @@ if __name__ == '__main__':
 
     print()
     print("転送管理サーバ",mids)
-    print("パケットロスしない率",mids_packet)
-    print("遅延時間",mids_time)
     print()
     print("取得するファイル:",server_file_name)
     print("経路作成にかかった時間:",rt_time)
     print("競技の時間:",Comp_end-Comp_start)
-    

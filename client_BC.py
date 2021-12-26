@@ -215,6 +215,9 @@ def BCth(address):# thはthreadの略
 
 
 def commandMain(): 
+    global Comp_start
+    global Comp_end
+
     key=len(mids) #使える経路の数で決まる
     #key =0 directでserverと通信 key>=1 serverと通信する際に挟むmidserverの数
 
@@ -233,6 +236,8 @@ def commandMain():
         client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
         client_socket.connect((server_name, server_port)) # サーバのソケットに接続する
         GET_all(client_socket, server_file_name, token_str) # GET(ALL)コマンド
+        Comp_start=time.time()
+        print("Comp_start",Comp_start)
     elif key == 1:
         start=time.time()
         client_socket = socket(AF_INET, SOCK_STREAM)  # ソケットを作る
@@ -240,6 +245,8 @@ def commandMain():
         GET_all(client_socket, server_file_name, token_str) # GET(ALL)コマンド
         end=time.time()
         print(end-start)
+        Comp_start=time.time()
+        print("Comp_start",Comp_start)
     elif key >= 2:
         start=time.time()
 
@@ -269,6 +276,8 @@ def commandMain():
 
         for GETs in GET_set_s:#get sendを一斉に行う　
             GETs.start()
+        Comp_start=time.time()
+        print("Comp_start",Comp_start)
         for GETr in GET_set_r:#get recを一斉に行う
             GETr.start()
         for GETr in GET_set_r:#get recが全部終わるまで待つ
@@ -283,25 +292,35 @@ def commandMain():
     elif key >= 1:
         client_socket.connect((mid_name, mid_port))  #中間サーバ―と通信する場合
     REP(client_socket, server_file_name, token_str) # REPコマンド
+    Comp_end=time.time()
+    print("Comp_end",Comp_end)
 
 if __name__ == '__main__':
-
-    #address=["pbl1a","pbl2a","pbl3a","pbl4a","pbl5a","pbl6a","pbl7a"]#AWS環境
-    address=["pbl1","pbl2","pbl3","pbl4"]#local環境
     if server_name == "localhost":#念のためサーバ名がpblXにしか対応してないから置換
         server_name = os.uname()[1]
     start=time.time()
-    BCmain(address)#経路探索の関数
+    
+    address=["pbl1a","pbl2a","pbl3a","pbl4a","pbl5a","pbl6a","pbl7a"]#AWS環境
+    #address=["pbl1","pbl2","pbl3","pbl4"]#local環境
+
+    BCmain(address)
+
     print('server_name:',server_name) # サーバ名
     print('server_port:',server_port) # サーバポート番号 
     print()
-    print('mid_name:',mid_name) # 中間サーバ名
+    print('mid_name:',mids) # 使用する中間サーバ名
     print('mid_port:',mid_port) # 中間サーバポート番号 
     print()
     end=time.time()
-    print(end-start)
+    rt_time=end-start
     print(mids,len(mids))
     commandMain()#SIZE,GET,REPを行なう関数
     print(mids,len(mids))
     end=time.time()
-    print(end-start)
+
+    print()
+    print("転送管理サーバ",mids)
+    print()
+    print("取得するファイル:",server_file_name)
+    print("経路作成にかかった時間:",rt_time)
+    print("競技の時間:",Comp_end-Comp_start)
