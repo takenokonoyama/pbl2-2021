@@ -6,7 +6,7 @@ import threading  # for Thread()
 import os
 import time
 import asyncio
-
+from multiprocessing import Pool, TimeoutError
 
 BUFSIZE = 1024 # 受け取る最大のファイルサイズ
 rec_file_name = 'midreceived_data.dat' # 受け取ったデータを書き込むファイル
@@ -160,16 +160,17 @@ def main_UDP():
         time.sleep(3)
         main_UDP()
 
-async def recmain(soc):
+def recmain(soc):
     try:
-        # タイムアウト時間を決めて実行する
-        rec=await asyncio.wait_for(recUDP(soc), timeout=5)
-    except asyncio.TimeoutError:
-        print('heavy_work() time out ...')
+        with Pool(processes=1) as p:
+                rec = p.apply_async(recUDP, (soc,))
+                rec.get(timeout=1)
+    except TimeoutError:
+        rec=-1
     return rec
 
-async def recUDP(soc):
-    rec=await asyncio(soc.recvfrom(8192))
+def recUDP(soc):
+    rec = soc.recvfrom(8192)
     return rec
 
 def interact_with_client_UDP(soc):
@@ -209,17 +210,21 @@ def interact_with_client_UDP(soc):
     if server_name!=mid_name:
         sentence = f'UDP {server_name} {server_port} {packet_sum} {mid_name} \n'
         send_socket = socket(AF_INET, SOCK_DGRAM)
-        try:
-            for i in range (packet_sum):#packet_sumの数だけ同じ文字を送ることでパケロス調べる
-                send_socket.sendto(sentence.encode(),(server_name,mid_port_UDP))
-        except OSError:
-            print("cannot send")
-            pass
-        
-        print("lts server ")
+        while True:
+            try:
+                for i in range (packet_sum):#packet_sumの数だけ同じ文字を送ることでパケロス調べる
+                    send_socket.sendto(sentence.encode(),(server_name,mid_port_UDP))
+            except OSError:
+                print("cannot send")
+                pass
+            
+            print("lts server ")
+            rec = recmain(send_socket)
+            print(rec)
+            if rec !=b"-1":
+                break
 
-        rec, addrnew = send_socket.recvfrom(8192)
-        rec_sentence=rec.decode()
+        rec_sentence=rec
         send_socket.close()
         print("rec_sentence",rec_sentence)
         mid=blank_set(rec_sentence,1)
