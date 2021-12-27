@@ -98,7 +98,7 @@ def exchange_Rootpacket(ad1, ad2, ttl):
         mid_name = ad1
     client_socket = socket(AF_INET, SOCK_STREAM)
     client_socket.connect((mid_name, mid_port)) # 送信するホストとコネクション
-
+    print("conect",mid_name)
     # 送信するデータを配列に格納
     data = b"abcdefghijklmnopqrstuvwxyz" # 任意のデータ
     # 参照する経由番号
@@ -412,8 +412,8 @@ if __name__ == '__main__':
     print('-----rooting-----')
     print('my_port', my_port)
     rooting_dir()
-    #address = ["pbl1","pbl2","pbl3","pbl4"] # ローカル環境
-    address = ["pbl1a","pbl2a","pbl3a","pbl4a", "pbl5a","pbl6a","pbl7a"]
+    address = ["pbl1","pbl2","pbl3","pbl4"] # ローカル環境
+    #address = ["pbl1a","pbl2a","pbl3a","pbl4a", "pbl5a","pbl6a","pbl7a"]
     print('my_port', my_port)
     rooting_1host(address) # 1ホスト経由のルーティング
     print('my_port', my_port)
