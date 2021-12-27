@@ -408,13 +408,16 @@ if __name__ == '__main__':
     # ---------ネットワークの状態を調べる--------------
     print('-----rooting-----')
     print('my_port', my_port)
+    
+    rst=time.time()
     rooting_dir()
-    # address = ["pbl1","pbl2","pbl3","pbl4"] # ローカル環境
-    address = ["pbl1a","pbl2a","pbl3a","pbl4a", "pbl5a","pbl6a","pbl7a"]
-    print('my_port', my_port)
-    rooting_1host(address) # 1ホスト経由のルーティング
-    print('my_port', my_port)
-    rooting_2host(address) # 2ホスト経由のルーティング
+    
+    address = ["pbl1","pbl2","pbl3","pbl4"] # ローカル環境
+    #address = ["pbl1a","pbl2a","pbl3a","pbl4a", "pbl5a","pbl6a","pbl7a"]
+    rooting_1host(address)
+    rooting_2host(address)
+    ret=time.time()
+    routing_time=ret-rst
 
     print('rooting completed\n')
 
@@ -444,4 +447,5 @@ if __name__ == '__main__':
     print('my_port', my_port)
     end_time = REP_cmd(RootTable,server_file_name)
 
-    print(f'time {end_time - start_time}')
+    print("経路作成時間:",routing_time)
+    print("競技時間",(end_time-start_time))
