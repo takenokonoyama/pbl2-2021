@@ -23,7 +23,7 @@ key = ''
 mid_name = ''
 mid_port = 53601 # 中管理サーバのポート
 
-RootTable = [] # 調べた経路を保存するリスト
+RouteTable = [] # 調べた経路を保存するリスト
 
 # 応答の受け取り
 def rec_res(soc):
@@ -89,7 +89,7 @@ def receive_server_file(soc,s_data_num):
             f.write(data)  # 受け取ったデータをファイルに書き込む 
 
 # ルーティングパケットの送受信
-def exchange_Rootpacket(ad1, ad2, ttl):
+def exchange_Routepacket(ad1, ad2, ttl):
     global my_port
     if ttl == 0:
         mid_name = server_name
@@ -105,10 +105,10 @@ def exchange_Rootpacket(ad1, ad2, ttl):
     '''
     パケット
     (クライアント名, 1つめの経由するホスト(経由番号1),2つめの経由するホスト(経由番号2),
-    サーバ名,任意データ,TTL,参照する経由番号,パケットの種類(Root(ルーティング用パケット) or Com(コマンド用パケット)), 
+    サーバ名,任意データ,TTL,参照する経由番号,パケットの種類(Route(ルーティング用パケット) or Com(コマンド用パケット)), 
     送信用(req)or応答用(rep), クライアントのポート番号)
     '''
-    info_pack = [my_name, ad1, ad2, server_name , data, ttl, relay_num, 'Root', 'req', my_port]
+    info_pack = [my_name, ad1, ad2, server_name , data, ttl, relay_num, 'Route', 'req', my_port]
     info_pack = pickle.dumps(info_pack) # 配列全体をバイト列に変換
 
     client_socket.send(info_pack) # データ配列の送信
@@ -125,42 +125,42 @@ def exchange_Rootpacket(ad1, ad2, ttl):
     return rep_info_pack
 
 # サーバに対して直接通信する経路を調べる
-def rooting_dir():
+async def routing_dir():
     ttl = 0
-    # Root用パケットのやり取り
+    # Route用パケットのやり取り
     start_time = time.time()
-    rep_info_pack = exchange_Rootpacket('none', 'none', ttl)
+    rep_info_pack = exchange_Routepacket('none', 'none', ttl)
     end_time = time.time()
-
+    await asyncio.sleep(10)
     # ルートテーブルへ調べた経路と時間を追加
-    Root = [end_time - start_time,rep_info_pack[0],rep_info_pack[1],\
+    Route = [end_time - start_time,rep_info_pack[0],rep_info_pack[1],\
             rep_info_pack[2], rep_info_pack[3]]
-    RootTable.append(Root)
+    RouteTable.append(Route)
 
     # print(rep_info_pack)
-    # print(RootTable)
+    # print(RouteTable)
     # print("time : {0}".format(end_time - start_time))
 
 # ホスト1つを経由する場合の経路を調べる
-def rooting_1host(ADDRESS):
+async def routing_1host(ADDRESS):
     # TCPで全てのホストに送信
     ttl = 1
     for ad in ADDRESS:
         # 自分とサーバと同じ名前を持つ転送管理サーバ以外へ送信
         if my_name != ad and server_name != ad:
             start_time = time.time()
-            # Root用パケットのやり取り
-            rep_info_pack = exchange_Rootpacket(ad, 'none', ttl)
+            # Route用パケットのやり取り
+            rep_info_pack = exchange_Routepacket(ad, 'none', ttl)
             end_time = time.time() # 時間計測完了
 
             # ルートテーブルへ調べた経路と時間を追加
-            Root = [end_time - start_time,rep_info_pack[0],rep_info_pack[1],\
+            Route = [end_time - start_time,rep_info_pack[0],rep_info_pack[1],\
                     rep_info_pack[2], rep_info_pack[3]]
-            RootTable.append(Root)
+            RouteTable.append(Route)
 
 
 # ホスト2つを経由する場合の経路を調べる
-def rooting_2host(ADDRESS):
+async def routing_2host(ADDRESS):
     # TCPで全てのホストに送信
     ttl = 2
     for ad1 in ADDRESS:
@@ -168,17 +168,17 @@ def rooting_2host(ADDRESS):
             for ad2 in ADDRESS:
                 if my_name != ad2 and server_name != ad2 and ad1 != ad2:
                     start_time = time.time()
-                    # Root用パケットのやり取り
-                    rep_info_pack = exchange_Rootpacket(ad1, ad2, ttl)
+                    # Route用パケットのやり取り
+                    rep_info_pack = exchange_Routepacket(ad1, ad2, ttl)
                     end_time = time.time() # 時間計測完了
 
                     # ルートテーブルへ調べた経路と時間を追加
-                    Root = [end_time - start_time,rep_info_pack[0],rep_info_pack[1],\
+                    Route = [end_time - start_time,rep_info_pack[0],rep_info_pack[1],\
                             rep_info_pack[2], rep_info_pack[3]]
-                    RootTable.append(Root)
+                    RouteTable.append(Route)
 
                     # print(rep_info_pack)
-                    # print(RootTable)
+                    # print(RouteTable)
                     # print("time : {0}".format(end_time - start_time))
 
 # SIZE応答からデータサイズを読み取り
@@ -188,24 +188,24 @@ def load_data_size(SIZE_msg):
     return data_size
 
 # SIZEパケットのやり取り(サーバ側へ最も速い経路をたどってSIZE要求をする)
-def SIZE_cmd(RootTable):
+def SIZE_cmd(RouteTable):
     global my_port
     # 直接SIZE要求
-    if(RootTable[0][2] == 'none'):
+    if(RouteTable[0][2] == 'none'):
         client_socket = socket(AF_INET, SOCK_STREAM)
         client_socket.connect((server_name, server_port))
         size_msg = SIZE(server_file_name)
         client_socket.send(size_msg.encode())
 
         SIZE_sentence = rec_res(client_socket)
-        print('SIZE_sentence', SIZE_sentence)
+        # print('SIZE_sentence', SIZE_sentence)
         data_size = load_data_size(SIZE_sentence)
     
     # 転送管理サーバを挟んでサイズ要求
     else:
         client_socket = socket(AF_INET, SOCK_STREAM)
-        client_socket.connect((RootTable[0][2], mid_port))
-        SIZE_pack = [RootTable[0][1],RootTable[0][2],RootTable[0][3], RootTable[0][4],\
+        client_socket.connect((RouteTable[0][2], mid_port))
+        SIZE_pack = [RouteTable[0][1],RouteTable[0][2],RouteTable[0][3], RouteTable[0][4],\
                         'SIZE', SIZE(server_file_name), 1, 'Com', 'req', my_port]
         # print('SIZE_packet', SIZE_pack)
         SIZE_pack = pickle.dumps(SIZE_pack) # 配列全体をバイト列に変換
@@ -217,28 +217,29 @@ def SIZE_cmd(RootTable):
         client_socket_recv.listen(6)
         connection_socket, addr = client_socket_recv.accept()
         SIZE_sentence = rec_res(connection_socket)
-        print('SIZE_sentence', SIZE_sentence)
+        # print('SIZE_sentence', SIZE_sentence)
         data_size = load_data_size(SIZE_sentence)
         my_port += 1
 
     # パケットのサイズを返す
     return data_size
 
-# GET_partialコマンド
-def GET_part_send(client_socket, RootTable, token_str, server_file_name, sep_data_s, sep_data_e, i):
+# GET_partialコマンド(送信)
+def GET_part_send(client_socket, RouteTable, token_str, server_file_name, sep_data_s, sep_data_e, i):
     
-    if(RootTable[i][2] == 'none'):
+    if(RouteTable[i][2] == 'none'):
         get_msg = GET_part(server_file_name, token_str, sep_data_s, sep_data_e)
         client_socket.send(get_msg.encode())
     else:
-        print('GET sending to',RootTable[i][2])
+        # print('GET sending to',RouteTable[i][2])
         # GET要求
-        GET_pack = [RootTable[i][1], RootTable[i][2], RootTable[i][3], RootTable[i][4],\
+        GET_pack = [RouteTable[i][1], RouteTable[i][2], RouteTable[i][3], RouteTable[i][4],\
                     'GET', GET_part(server_file_name, token_str, sep_data_s, sep_data_e), 1, 'Com', 'req', my_port]
         # print('GET_packet', GET_pack)
         GET_pack = pickle.dumps(GET_pack) # 配列全体をバイト列に変換
         client_socket.send(GET_pack) # データ配列の送信
 
+# GETpartialコマンド(受け取り)
 def GET_part_rec(connection_socket, sep_data_s):
     # 応答の受け取り
     global sdata_num
@@ -256,11 +257,11 @@ def GET_part_rec(connection_socket, sep_data_s):
             receive_server_file(connection_socket, sdata_num)
             connection_socket.close()
             sdata_num += 1
-            print(f'Thread {sdata_num} end')
+            # print(f'Thread {sdata_num} end')
             break
 
 # GETコマンド
-def GET_part_cmd(RootTable, token_str, server_file_name, data_size):
+def GET_part_cmd(RouteTable, token_str, server_file_name, data_size):
     global my_port
 
     sep_data_s=[] # 分けたデータの最初を入れる 
@@ -268,55 +269,57 @@ def GET_part_cmd(RootTable, token_str, server_file_name, data_size):
 
     '''
     # データ分割(等分)
-    for i in range(0,len(RootTable)):
+    for i in range(0,len(RouteTable)):
         # 使える転送管理サーバの数に応じて同量でデータ分割(帯域幅等で分割できるとより良い)
         if i == 0: 
             separate_data_s=0
         else:
             separate_data_s=separate_data_e+1
-        separate_data_e=int((i+1)*(data_size/len(RootTable)))
-        print(f'sep{i}_s {separate_data_s}')
-        print(f'sep{i}_e {separate_data_e}')
+        separate_data_e=int((i+1)*(data_size/len(RouteTable)))
+        print(f'sep{i} {separate_data_s} {separate_data_e}')
         sep_data_s.append(separate_data_s)
         sep_data_e.append(separate_data_e)
     '''
+
+    # '''
     # データ分割(ルーティングパケットの往復時間依存)
     SumTime = 0
     ratio_list = []
-    for i in range(0, len(RootTable)):
-        SumTime += RootTable[i][0]
+    for i in range(0, len(RouteTable)):
+        SumTime += RouteTable[i][0]
     
-    print('SumTime:', SumTime)
+    print('routing Time:', SumTime)
+    
     SumRatio = 0
     # (合計時間 / 計測時間)のリスト作成
-    for i in range(0, len(RootTable)):
-        ratio_list.append(SumTime / RootTable[i][0])
-        SumRatio += (SumTime / RootTable[i][0])
+    for i in range(0, len(RouteTable)):
+        ratio_list.append(SumTime / RouteTable[i][0])
+        SumRatio += (SumTime / RouteTable[i][0])
 
-    for i in range(0,len(RootTable)):
+    for i in range(0,len(RouteTable)):
         # 使える転送管理サーバの数に応じて同量でデータ分割(帯域幅等で分割できるとより良い)
         if i == 0: 
             separate_data_s=0
         else:
             separate_data_s=separate_data_e+1
         separate_data_size = int(float(data_size)*((ratio_list[i]/ SumRatio)))
-        if(i == len(RootTable)-1):
+        if(i == len(RouteTable)-1):
             separate_data_e = data_size
         else:
             separate_data_e = separate_data_size + separate_data_s
 
-        print(f'sep{i}_s {separate_data_s}')
-        print(f'sep{i}_e {separate_data_e}')
+        print(f'sep{i} {separate_data_s} {separate_data_e}')
+
         sep_data_s.append(separate_data_s)
         sep_data_e.append(separate_data_e)
-    
+    # '''
     print()
     
     # GETpartialコマンド
     GET_set_s=[] #get sendをまとめて管理　スレッド用
     GET_set_r=[] #get recをまとめて管理　スレッド用
-    for i in range(0,len(RootTable)):
-        if(RootTable[i][2] == 'none'):
+    for i in range(0,len(RouteTable)):
+        if(RouteTable[i][2] == 'none'):
             # 直接GET要求
             client_socket = socket(AF_INET, SOCK_STREAM)
             client_socket.connect((server_name, server_port))
@@ -326,9 +329,9 @@ def GET_part_cmd(RootTable, token_str, server_file_name, data_size):
 
         else:
             client_socket = socket(AF_INET, SOCK_STREAM)
-            client_socket.connect((RootTable[i][2], mid_port))
+            client_socket.connect((RouteTable[i][2], mid_port))
         # 送信用スレッド
-        GETs = threading.Thread(target=GET_part_send, args=(client_socket, RootTable, token_str, \
+        GETs = threading.Thread(target=GET_part_send, args=(client_socket, RouteTable, token_str, \
             server_file_name, sep_data_s[i], sep_data_e[i], i))
         GET_set_s.append(GETs)
     start_time = time.time()
@@ -337,10 +340,10 @@ def GET_part_cmd(RootTable, token_str, server_file_name, data_size):
     
     client_socket_recv = socket(AF_INET, SOCK_STREAM)
     client_socket_recv.bind(('', my_port)) # 自身のポートをソケットに対応づける
-    client_socket_recv.listen(len(RootTable))
+    client_socket_recv.listen(len(RouteTable))
 
-    for i in range(0, len(RootTable)):
-        if(RootTable[i][2] == 'none'):
+    for i in range(0, len(RouteTable)):
+        if(RouteTable[i][2] == 'none'):
             continue
         else:
             connection_socket, addr = client_socket_recv.accept()
@@ -357,9 +360,9 @@ def GET_part_cmd(RootTable, token_str, server_file_name, data_size):
     return start_time
 
 # REPコマンド
-def REP_cmd(RootTable, server_file_name):
+def REP_cmd(RouteTable, server_file_name):
     # 直接REP要求
-    if(RootTable[0][2] == 'none'):
+    if(RouteTable[0][2] == 'none'):
         client_socket = socket(AF_INET, SOCK_STREAM)
         client_socket.connect((server_name, server_port))
         rep_msg = REP(server_file_name)
@@ -372,8 +375,8 @@ def REP_cmd(RootTable, server_file_name):
     
     else:
         client_socket = socket(AF_INET, SOCK_STREAM)
-        client_socket.connect((RootTable[0][2], mid_port)) # 送信するホストとコネクション
-        REP_pack = [RootTable[0][1],RootTable[0][2],RootTable[0][3], RootTable[0][4],\
+        client_socket.connect((RouteTable[0][2], mid_port)) # 送信するホストとコネクション
+        REP_pack = [RouteTable[0][1],RouteTable[0][2],RouteTable[0][3], RouteTable[0][4],\
                         'REP', REP(server_file_name), 1, 'Com', 'req', my_port]
         # print('REP_packet', REP_pack)
         
@@ -392,9 +395,10 @@ def REP_cmd(RootTable, server_file_name):
     return end_time  
 
 if __name__ == '__main__':
+
     print('----sending infomation----')
     # 情報の出力
-    print('my name', my_name)
+    print('my name(初期値)', my_name)
     print('my(client) port', my_port)
 
     print('server name', server_name)
@@ -406,42 +410,51 @@ if __name__ == '__main__':
     print()
 
     # ---------ネットワークの状態を調べる--------------
-    print('-----rooting-----')
-    print('my_port', my_port)
-    rooting_dir()
-    # address = ["pbl1","pbl2","pbl3","pbl4"] # ローカル環境
-    address = ["pbl1a","pbl2a","pbl3a","pbl4a", "pbl5a","pbl6a","pbl7a"]
-    print('my_port', my_port)
-    rooting_1host(address) # 1ホスト経由のルーティング
-    print('my_port', my_port)
-    rooting_2host(address) # 2ホスト経由のルーティング
+    print('-----routing-----')
+    # print('my_port', my_port)
+    routing_dir() # 0ホスト経由のルーティング
+    address = ["pbl1","pbl2","pbl3","pbl4"] # ローカル環境
+    # address = ["pbl1a","pbl2a","pbl3a","pbl4a", "pbl5a","pbl6a","pbl7a"]
+    # print('my_port', my_port)
+    routing_1host(address) # 1ホスト経由のルーティング
+    # print('my_port', my_port)
+    routing_2host(address) # 2ホスト経由のルーティング
 
-    print('rooting completed\n')
-
+    ''''
+    # タイムアウト処理(実装中)
+    loop = asyncio.get_event_loop()
+    gather = asyncio.gather(
+        routing_dir(),
+        routing_1host(address),
+        routing_2host(address)
+    )
+    loop.run_until_complete(gather)
+    print('routing completed\n')
+    '''
     # ---------ダウンロードしたファイルをルーティングした経路で送信---------
     print('------download file------')
     
-    RootTable = sorted(RootTable) # timeによってソート
-    print('sorted RootTable:')
-    print(*RootTable, sep='\n')
+    RouteTable = sorted(RouteTable) # timeによってソート
+    print('sorted RouteTable:')
+    print(*RouteTable, sep='\n')
     # SIZEコマンド
-    print('SIZE Command\n')
-    print('my_port', my_port)
-    data_size = SIZE_cmd(RootTable)
-    
+    print('SIZE Command')
+    # print('my_port', my_port)
+    data_size = SIZE_cmd(RouteTable)
+    print('data_size:',data_size)
     print()
 
     print('GET Command')
-    print('my_port', my_port)
+    # print('my_port', my_port)
     
     # GETpartialコマンド
-    start_time = GET_part_cmd(RootTable, token_str, server_file_name, data_size)
+    start_time = GET_part_cmd(RouteTable, token_str, server_file_name, data_size)
 
     print()
     
     # REPコマンド
     print('REP Command')
-    print('my_port', my_port)
-    end_time = REP_cmd(RootTable,server_file_name)
+    # print('my_port', my_port)
+    end_time = REP_cmd(RouteTable,server_file_name)
 
     print(f'time {end_time - start_time}')
