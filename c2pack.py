@@ -98,7 +98,7 @@ def exchange_Rootpacket(ad1, ad2, ttl):
         mid_name = ad1
     client_socket = socket(AF_INET, SOCK_STREAM)
     client_socket.connect((mid_name, mid_port)) # 送信するホストとコネクション
-    print("conect",mid_name)
+    print("connect",mid_name)
     # 送信するデータを配列に格納
     data = b"abcdefghijklmnopqrstuvwxyz" # 任意のデータ
     # 参照する経由番号
@@ -111,10 +111,11 @@ def exchange_Rootpacket(ad1, ad2, ttl):
     '''
     info_pack = [my_name, ad1, ad2, server_name , data, ttl, relay_num, 'Root', 'req', my_port,0]
     info_pack = pickle.dumps(info_pack) # 配列全体をバイト列に変換
-
+    print("first send",mid_name)
     client_socket.send(info_pack) # データ配列の送信
     time.sleep(lag_set)
     client_socket.send(info_pack) # データ配列の送信
+    print("second send fin",mid_name)
     client_socket.close()
 
     # info_packet(応答用)の受け取り
