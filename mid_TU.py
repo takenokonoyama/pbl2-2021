@@ -5,6 +5,8 @@ from socket import *
 import threading  # for Thread()
 import os
 import time
+import asyncio
+
 
 BUFSIZE = 1024 # 受け取る最大のファイルサイズ
 rec_file_name = 'midreceived_data.dat' # 受け取ったデータを書き込むファイル
@@ -15,7 +17,7 @@ server_name = 0 # サーバのホスト名
 server_port = 0 # サーバのポート
 packet_sum = 10000
 routing_time=10#経路作成する時間
-thread = 0
+UDPtime = 0
 
 mid_port = 53009
 mid_port_UDP =53019
@@ -129,32 +131,9 @@ def openfile(file_name,soc) :#fileを開き一文字ずつ送るための関数
         soc.send(s)
 
 def blank_set(sentence,count_time):#文字列の一部分を取り出すための関数
-    #取り出したい文字列とその文字列の何単語めかを引数にしてる。
-    #DEC pbl1 pbl3　でpbl1を取り出したいならcount_timeは1
-    rep_sentence=[]
-    count=0
-    i=0
-    str=' '
-    print(len(sentence)-1)
-    #1,配列に文字を格納してから、2,配列を基に返信の文字列を作成
-    #1,配列に文字を格納
-    while i < len(sentence): #カウントするblanck 数
-        if  str == sentence[i]:#空白をカウントしてる。
-            count+=1
-            i+=1
-        if count == count_time:
-            rep_sentence.append(sentence[i]) 
-        i+=1
-
-    #2,配列を基に返信の文字列を作成
-    count=0
-    for i in rep_sentence:#配列を基に返信の文字列を作成
-        if count==0:
-            rep=i
-        else:
-            rep+=i
-        count+=1
-    return rep #返されるのは取り出したい単語
+    msg_list = sentence.split() # 空白で分割
+    data = msg_list[count_time]
+    return data
 
 def main_TCP(): #クライアントと中間サーバの通信
     mid_socket = socket(AF_INET, SOCK_STREAM) # ソケットを作る
@@ -170,25 +149,28 @@ def main_TCP(): #クライアントと中間サーバの通信
 
 def main_UDP():
     mid_socket = socket(AF_INET, SOCK_DGRAM)
-    print('The server is ready to receive by UDP')
+    
     mid_socket.bind(('', mid_port_UDP))
-    if server_name !=mid_name:
-        UDPth=threading.Thread(target=interact_with_client_UDP, args=(mid_socket,))
-        UDPth.start()
-        UDPth.join()
-    elif server_name == mid_name:
-        UDPset=[]
-        for i in range(6):
-            UDPth=threading.Thread(target=interact_with_client_UDP, args=(mid_socket,))
-            UDPset.append(UDPth.start())
-        for UDPths in UDPset:
-            try:
-                UDPths.join()
-            except AttributeError:
-                print("'NoneType' object has no attribute 'join'")
-                pass
-   
+    print('The server is ready to receive by UDP')
+    handler = threading.Thread(target=interact_with_client_UDP, args=(mid_socket,))
+    handler.start()
+    handler.join()
     mid_socket.close()
+    if server_name == mid_name:
+        time.sleep(3)
+        main_UDP()
+
+async def recmain(soc):
+    try:
+        # タイムアウト時間を決めて実行する
+        rec=await asyncio.wait_for(recUDP(soc), timeout=5)
+    except asyncio.TimeoutError:
+        print('heavy_work() time out ...')
+    return rec
+
+async def recUDP(soc):
+    rec=await asyncio(soc.recvfrom(8192))
+    return rec
 
 def interact_with_client_UDP(soc):
     # ソケットを用意
@@ -198,50 +180,59 @@ def interact_with_client_UDP(soc):
     count=0
     while True:
         # 受信
-        try:
-            rec, addr = soc.recvfrom(8192)
-        except timeout:
-            print("timeout break")
-            break
-        if count ==0 :
+        if count == 0:
+            rec, addr=soc.recvfrom(8192)
+        else:
+            try:
+                rec = recmain(soc)
+            except OSError:
+                print("timeout break")
+                break
+        if count == 0 :
             rec_sentence=rec.decode()
             s_time=time.time()
             server_name = blank_set(rec_sentence,1)#rec_sentenceの二単語目を使いたい
             server_port = int(blank_set(rec_sentence,2))#rec_sentenceの三単語目を使いたい
             packet_sum  = int(blank_set(rec_sentence,3))
+            from_name = blank_set(rec_sentence,4)
+            print("i from ",from_name)
             print(server_name,server_port, packet_sum)
         
         count+=1
         el_time=time.time()-s_time
-        if count >= int(packet_sum/2)  or el_time > 5:
+        if count >= packet_sum  or el_time > 5:
             print("first break")
             print("count",count)
             break
 
-
+    print(count)
     if server_name!=mid_name:
-        sentence = f'UDP {server_name} {server_port} {packet_sum} \n'
+        sentence = f'UDP {server_name} {server_port} {packet_sum} {mid_name} \n'
+        send_socket = socket(AF_INET, SOCK_DGRAM)
         try:
             for i in range (packet_sum):#packet_sumの数だけ同じ文字を送ることでパケロス調べる
-                soc.sendto(sentence.encode(),(server_name,mid_port_UDP))
+                send_socket.sendto(sentence.encode(),(server_name,mid_port_UDP))
         except OSError:
             print("cannot send")
             pass
         
         print("lts server ")
 
-        rec, addr = soc.recvfrom(8192)
+        rec, addrnew = send_socket.recvfrom(8192)
         rec_sentence=rec.decode()
+        send_socket.close()
         print("rec_sentence",rec_sentence)
         mid=blank_set(rec_sentence,1)
         siz=int(blank_set(rec_sentence,2))
         print("count,siz",count,siz)
         count=int((count+siz)/2)
         print("update count",count)
+
     else:    
         print("im server working harder")
     
     sentence = f"reply {mid_name} {count} \n"
+    
     print("sentence:",sentence)
     print("st sendto",addr[0],addr[1])
 
@@ -254,8 +245,5 @@ if __name__ == '__main__':
     #print("mid_name:",mid_name)
     #print("mid_port:",mid_port)
     main_UDP()
-    if mid_name == server_name:
-        while True :
-            main_UDP()
     print(server_name,server_port)
     main_TCP()
