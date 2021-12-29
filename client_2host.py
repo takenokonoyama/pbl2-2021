@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # client.py
 
+from concurrent import futures
 from socket import *
 import time
 import sys
@@ -9,6 +10,7 @@ import pickle
 import threading
 import os
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 BUFSIZE = 1024 # 受け取る最大のファイルサイズ
 my_name = os.uname()[1]  # クライアントのホスト名あるいはIPアドレスを表す文字列
@@ -89,13 +91,13 @@ def receive_server_file(soc,s_data_num):
             f.write(data)  # 受け取ったデータをファイルに書き込む 
 
 # ルーティングパケットの送受信
-def exchange_Routepacket(ad1, ad2, ttl):
-    global my_port
+def exchange_Routepacket(ad1, ad2, ttl, my_port):
     if ttl == 0:
         mid_name = server_name
     else:
         mid_name = ad1
     client_socket = socket(AF_INET, SOCK_STREAM)
+
     client_socket.connect((mid_name, mid_port)) # 送信するホストとコネクション
 
     # 送信するデータを配列に格納
@@ -121,65 +123,81 @@ def exchange_Routepacket(ad1, ad2, ttl):
     connection_socket, addr = client_socket_recv.accept()
     rep_info_pack = connection_socket.recv(1024) 
     rep_info_pack = pickle.loads(rep_info_pack) #バイト列を配列に変換
-    my_port += 1
     return rep_info_pack
 
 # サーバに対して直接通信する経路を調べる
-async def routing_dir():
+def routing_dir():
+    global my_port
     ttl = 0
     # Route用パケットのやり取り
-    start_time = time.time()
-    rep_info_pack = exchange_Routepacket('none', 'none', ttl)
-    end_time = time.time()
-    await asyncio.sleep(10)
-    # ルートテーブルへ調べた経路と時間を追加
-    Route = [end_time - start_time,rep_info_pack[0],rep_info_pack[1],\
-            rep_info_pack[2], rep_info_pack[3]]
-    RouteTable.append(Route)
+    try:
+        # Route用パケットのやり取り
+        start_time = time.time()
+        future = tpe.submit(exchange_Routepacket, 'none', 'none', ttl, my_port)
+        my_port += 1
+        # futures.append(future)
+        rep_info_pack = future.result(timeout=0.5) # 応答の受け取り(タイムアウト時間の設定)
+        end_time = time.time()
+        # ルートテーブルへ調べた経路と時間を追加
+        Route = [end_time - start_time, rep_info_pack[0],rep_info_pack[1],\
+                rep_info_pack[2], rep_info_pack[3]]
+        RouteTable.append(Route)
+        print('send Route packet')
 
+    except:
+        print('cannot send Route packet(timeout or something else)')
     # print(rep_info_pack)
     # print(RouteTable)
     # print("time : {0}".format(end_time - start_time))
 
 # ホスト1つを経由する場合の経路を調べる
-async def routing_1host(ADDRESS):
+def routing_1host(ADDRESS):
+    global my_port
     # TCPで全てのホストに送信
     ttl = 1
     for ad in ADDRESS:
         # 自分とサーバと同じ名前を持つ転送管理サーバ以外へ送信
         if my_name != ad and server_name != ad:
-            start_time = time.time()
-            # Route用パケットのやり取り
-            rep_info_pack = exchange_Routepacket(ad, 'none', ttl)
-            end_time = time.time() # 時間計測完了
-
-            # ルートテーブルへ調べた経路と時間を追加
-            Route = [end_time - start_time,rep_info_pack[0],rep_info_pack[1],\
-                    rep_info_pack[2], rep_info_pack[3]]
-            RouteTable.append(Route)
-
+            try:
+                # Route用パケットのやり取り
+                start_time = time.time()
+                future = tpe.submit(exchange_Routepacket, ad, 'none', ttl, my_port)
+                my_port += 1
+                # futures.append(future)
+                rep_info_pack = future.result(timeout=0.5)
+                end_time = time.time()
+                
+                # ルートテーブルへ調べた経路と時間を追加
+                Route = [end_time - start_time, rep_info_pack[0],rep_info_pack[1],\
+                        rep_info_pack[2], rep_info_pack[3]]
+                RouteTable.append(Route)
+            except:
+                print('cannot send packet(timeout or something else)')
 
 # ホスト2つを経由する場合の経路を調べる
-async def routing_2host(ADDRESS):
+def routing_2host(ADDRESS):
+    global my_port
     # TCPで全てのホストに送信
     ttl = 2
     for ad1 in ADDRESS:
         if my_name != ad1 and server_name != ad1:
             for ad2 in ADDRESS:
                 if my_name != ad2 and server_name != ad2 and ad1 != ad2:
-                    start_time = time.time()
-                    # Route用パケットのやり取り
-                    rep_info_pack = exchange_Routepacket(ad1, ad2, ttl)
-                    end_time = time.time() # 時間計測完了
+                    try:
+                        # Route用パケットのやり取り
+                        start_time = time.time()
+                        future = tpe.submit(exchange_Routepacket, ad1, ad2, ttl, my_port)
+                        my_port += 1
+                        # futures.append(future)
+                        rep_info_pack = future.result(timeout=0.5)
+                        end_time = time.time()
+                        # ルートテーブルへ調べた経路と時間を追加
+                        Route = [end_time - start_time, rep_info_pack[0],rep_info_pack[1],\
+                                rep_info_pack[2], rep_info_pack[3]]
+                        RouteTable.append(Route)
+                    except:
+                        print('cannot send packet(timeout or something else)')
 
-                    # ルートテーブルへ調べた経路と時間を追加
-                    Route = [end_time - start_time,rep_info_pack[0],rep_info_pack[1],\
-                            rep_info_pack[2], rep_info_pack[3]]
-                    RouteTable.append(Route)
-
-                    # print(rep_info_pack)
-                    # print(RouteTable)
-                    # print("time : {0}".format(end_time - start_time))
 
 # SIZE応答からデータサイズを読み取り
 def load_data_size(SIZE_msg):
@@ -257,7 +275,7 @@ def GET_part_rec(connection_socket, sep_data_s):
             receive_server_file(connection_socket, sdata_num)
             connection_socket.close()
             sdata_num += 1
-            # print(f'Thread {sdata_num} end')
+            print(f'Thread {sdata_num} end')
             break
 
 # GETコマンド
@@ -297,7 +315,6 @@ def GET_part_cmd(RouteTable, token_str, server_file_name, data_size):
         SumRatio += (SumTime / RouteTable[i][0])
 
     for i in range(0,len(RouteTable)):
-        # 使える転送管理サーバの数に応じて同量でデータ分割(帯域幅等で分割できるとより良い)
         if i == 0: 
             separate_data_s=0
         else:
@@ -340,7 +357,7 @@ def GET_part_cmd(RouteTable, token_str, server_file_name, data_size):
     
     client_socket_recv = socket(AF_INET, SOCK_STREAM)
     client_socket_recv.bind(('', my_port)) # 自身のポートをソケットに対応づける
-    client_socket_recv.listen(len(RouteTable))
+    client_socket_recv.listen(5)
 
     for i in range(0, len(RouteTable)):
         if(RouteTable[i][2] == 'none'):
@@ -353,9 +370,11 @@ def GET_part_cmd(RouteTable, token_str, server_file_name, data_size):
     
     for GETr in GET_set_r:#get recを一斉に行う
         GETr.start()
-    
+    print('sending GET PARTIAL Command')
+
     for GETr in GET_set_r:#get recが全部終わるまで待つ
         GETr.join()
+
     my_port += 1
     return start_time
 
@@ -411,32 +430,28 @@ if __name__ == '__main__':
 
     # ---------ネットワークの状態を調べる--------------
     print('-----routing-----')
+    # ThreadPoolExecutorでタイムアウトを実装している。(result()が非同期処理らしいので実際にはスレッド化できていないかも)
+    tpe = ThreadPoolExecutor(max_workers=26)
+    futures = []
     # print('my_port', my_port)
     routing_dir() # 0ホスト経由のルーティング
-    address = ["pbl1","pbl2","pbl3","pbl4"] # ローカル環境
-    # address = ["pbl1a","pbl2a","pbl3a","pbl4a", "pbl5a","pbl6a","pbl7a"]
+    print('routing dir completed')
+    # address = ["pbl1","pbl2","pbl3","pbl4"] # ローカル環境
+    address = ["pbl1a","pbl2a","pbl3a","pbl4a", "pbl5a","pbl6a","pbl7a"]
     # print('my_port', my_port)
     routing_1host(address) # 1ホスト経由のルーティング
     # print('my_port', my_port)
+    print('routing 1host completed')
     routing_2host(address) # 2ホスト経由のルーティング
+    print('routing 2host completed')
 
-    ''''
-    # タイムアウト処理(実装中)
-    loop = asyncio.get_event_loop()
-    gather = asyncio.gather(
-        routing_dir(),
-        routing_1host(address),
-        routing_2host(address)
-    )
-    loop.run_until_complete(gather)
-    print('routing completed\n')
-    '''
     # ---------ダウンロードしたファイルをルーティングした経路で送信---------
     print('------download file------')
     
     RouteTable = sorted(RouteTable) # timeによってソート
     print('sorted RouteTable:')
     print(*RouteTable, sep='\n')
+
     # SIZEコマンド
     print('SIZE Command')
     # print('my_port', my_port)

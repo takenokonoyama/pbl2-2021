@@ -220,7 +220,7 @@ def main():
     # -----転送管理サーバを経由してサーバとクライアントの通信をする----  
     my_socket = socket(AF_INET, SOCK_STREAM) 
     my_socket.bind(('', my_port)) # 自身のポートをソケットに対応づける
-    my_socket.listen(50)
+    my_socket.listen(10)
 
     print('The server is ready to receive info packet')
 
