@@ -51,7 +51,7 @@ def relay_packet(connect_soc):
     pack = connect_soc.recv(1024)
     pack = pickle.loads(pack) # 配列の受け取り
 
-    first_packet_time=time.time()*10000
+    first_packet_time=time.time()*100
     # print('packet : \n{0}'.format(pack))
     
     # ----Routing用のパケットだった場合-----
@@ -61,7 +61,7 @@ def relay_packet(connect_soc):
         # print('server_name: ', server_name)
         if(pack[8] == 'req'):
             second_pack = connect_soc.recv(1024)
-            second_packet_time=time.time()*10000
+            second_packet_time=time.time()*100
             lag_time=second_packet_time-first_packet_time-lag_set
             pack[10]+=lag_time
             # TTL(pack[5])==2ならば、転送管理サーバへ送信
@@ -219,7 +219,6 @@ def relay_packet(connect_soc):
                     openfile(file_name, soc_to_cl)
             
 def openfile(file_name, soc) :
-
     # print(path)
     with open(file_name, 'rb') as f:
         s = f.read()

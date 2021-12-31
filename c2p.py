@@ -11,7 +11,7 @@ import threading
 import os
 from concurrent.futures import ThreadPoolExecutor
 
-BUFSIZE = 1024 # 受け取る最大のファイルサイズ
+BUFSIZE = 1024*8 # 受け取る最大のファイルサイズ
 my_name = os.uname()[1]  # クライアントのホスト名あるいはIPアドレスを表す文字列
 my_port = 53602 # クライアントのポート
 server_name = sys.argv[1] # サーバのホスト名
