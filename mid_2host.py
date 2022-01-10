@@ -65,7 +65,8 @@ def relay_packet(connect_soc):
                 soc_to_ser = socket(AF_INET, SOCK_STREAM)
                 soc_to_ser.connect((mid_name, my_port))
                 pack = pickle.dumps(pack) # 配列全体をバイト列に変換
-                soc_to_ser.send(pack) # データ配列の送信    
+                soc_to_ser.send(pack) # データ配列の送信
+                soc_to_ser.close()
             
             # TTL(info_pack[5])==1ならばTTLを1つ減らして、サーバと同じ名前の転送管理サーバへ送信
             elif(pack[5] == 1):
@@ -76,7 +77,8 @@ def relay_packet(connect_soc):
                 soc_to_ser.connect((server_name, my_port))
                 pack = pickle.dumps(pack) # 配列全体をバイト列に変換
                 soc_to_ser.send(pack) # データ配列の送信
-                
+                soc_to_ser.close()
+            
             # TTL==0ならばその転送管理サーバはサーバと同じ名前をもつ
             elif(pack[5] == 0):
                 pack[6] -= 1
@@ -89,7 +91,7 @@ def relay_packet(connect_soc):
                     pack[8] = 'rep' # パケットを応答用に変更
                     pack = pickle.dumps(pack) # 配列全体をバイト列に変換
                     soc_to_cl.send(pack) # データ配列の送信
-
+                    soc_to_cl.close()
                 else:
                     mid_name = pack[pack[6]] # 参照番号1 or 2を見る
                     # print(mid_name)
@@ -98,8 +100,10 @@ def relay_packet(connect_soc):
                     pack[8] = 'rep' # パケットを応答用に変更
                     pack = pickle.dumps(pack) # 配列全体をバイト列に変換
                     soc_to_mid.send(pack) # データ配列の送信
+                    soc_to_mid.close()
 
         elif(pack[8] == 'rep'):
+
             if(pack[6] == 1):
                 pack[6] -= 1
                 cl_name = pack[0] # クライアント名
@@ -109,7 +113,8 @@ def relay_packet(connect_soc):
                 print("sending to client :",cl_name, cl_port)
                 pack = pickle.dumps(pack) # 配列全体をバイト列に変換
                 soc_to_cl.send(pack) # データ配列の送信
-
+                soc_to_cl.close()
+            
             elif(pack[6] == 2):
                 pack[6] -= 1
                 mid_name = pack[pack[6]]
@@ -118,6 +123,7 @@ def relay_packet(connect_soc):
                 soc_to_mid.connect((mid_name, mid_port))
                 pack = pickle.dumps(pack) # 配列全体をバイト列に変換
                 soc_to_mid.send(pack) # データ配列の送信
+                soc_to_mid.close()
 
     # ----コマンド用のパケットだった場合
     elif(pack[7] == 'Com'):
@@ -129,14 +135,16 @@ def relay_packet(connect_soc):
                 # ----サーバとのやり取り(コマンド要求・受け取り)--------
                 soc_to_ser = socket(AF_INET, SOCK_STREAM)
                 soc_to_ser.connect((server_name, server_port))
-
                 soc_to_ser.send(pack[5].encode())
                 sentence = rec_res(soc_to_ser)
+                print(sentence)
                 file_name = str(rec_count)+rec_file_name
                 rec_count+=1
+
                 if(pack[4] == 'GET'):
                     print('received server file')
                     receive_server_file(soc_to_ser, file_name)
+                soc_to_ser.close()
 
                 # ----クライアントとのやり取り----
                 cl_name = pack[0]
@@ -148,6 +156,7 @@ def relay_packet(connect_soc):
                 if(pack[4] == 'GET'):
                    #  print('sending file to',cl_name, file_name)
                     openfile(file_name, soc_to_cl)
+                soc_to_cl.close()
             else:
                 # 転送管理サーバへパケットを送信
                 if(pack[6] == 1):
@@ -158,6 +167,7 @@ def relay_packet(connect_soc):
                     soc_to_mid.connect((mid_name, mid_port)) 
                     pack = pickle.dumps(pack) # 配列全体をバイト列に変換
                     soc_to_mid.send(pack) # データ配列の送信  
+                    soc_to_mid.close()
                 
                 elif(pack[6] == 2):
                     pack[6] -= 1
@@ -166,12 +176,15 @@ def relay_packet(connect_soc):
                     soc_to_ser.connect((server_name, server_port))
                     soc_to_ser.send(pack[5].encode())
                     sentence = rec_res(soc_to_ser)
+
                     file_name = str(rec_count)+rec_file_name
                     rec_count+=1
                     if(pack[4] == 'GET'):
                         print('received server file')
                         receive_server_file(soc_to_ser, file_name)
-                    print(sentence)       
+                    soc_to_ser.close()
+                    print(sentence)
+
                     # ----転送管理サーバとのやり取り----
                     mid_name = pack[pack[6]]
                     soc_to_mid = socket(AF_INET, SOCK_STREAM)
@@ -186,6 +199,7 @@ def relay_packet(connect_soc):
                         # print(sentence)
                         print('sending file to',mid_name, file_name)
                         openfile(file_name, soc_to_mid)
+                    soc_to_mid.close()
 
         elif(pack[8] == 'rep'): # パケットが応答用
             if(pack[6] == 1):
@@ -195,7 +209,7 @@ def relay_packet(connect_soc):
                     sentence = 'Received packet\n'
                     connect_soc.send(sentence.encode())
                     receive_server_file(connect_soc, file_name)
-                    
+
                 cl_name = pack[0]
                 cl_port = pack[9]
                 sentence = pack[5] # 
@@ -205,7 +219,9 @@ def relay_packet(connect_soc):
                 if(pack[4] == 'GET'):
                     print('sending file to',cl_name, file_name)
                     openfile(file_name, soc_to_cl)
-            
+                soc_to_cl.close()
+    
+    connect_soc.close()
 def openfile(file_name, soc) :
 
     # print(path)
