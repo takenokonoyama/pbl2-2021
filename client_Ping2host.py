@@ -108,21 +108,23 @@ def exchange_Routepacket_ping(ad1, ad2, ttl, rtt):
     else:
         mid_name = ad1
     
-    client_socket = socket(AF_INET, SOCK_STREAM)
-    client_socket.connect((mid_name, mid_port)) # 送信するホストとコネクション
-
     # パケットが正当な経路で送られたかを判断
     flg_route = True
     # 参照する経由番号
     relay_num = 1
+
+    
+    client_socket = socket(AF_INET, SOCK_STREAM)
+    client_socket.connect((mid_name, mid_port)) # 送信するホストとコネクション
+
     '''
     パケット
     (クライアント名, 1つめの経由するホスト(経由番号1),2つめの経由するホスト(経由番号2),
     サーバ名,任意データ,TTL,参照する経由番号,パケットの種類(Route(ルーティング用パケット) or Com(コマンド用パケット)), 
     送信用(req)or応答用(rep), クライアントのポート番号)
     '''
-
     info_pack = [my_name, ad1, ad2, server_name , flg_route, ttl, relay_num, 'Route', 'req', my_port_route, rtt]
+    # print(sys.getsizeof(info_pack))
     info_pack = pickle.dumps(info_pack) # 配列全体をバイト列に変換
     client_socket.send(info_pack) # データ配列の送信
     client_socket.close()
@@ -249,13 +251,11 @@ def routing_2host():
 
 # tpeの実行(Routeパケットの受け取り)
 def recv_Route_packet(TO_time):
-    global route_count
     for future in futures:
         try:
             rep_info_pack = future.result(timeout=TO_time)
             if(rep_info_pack[4] == True):
-                route_count += 1
-
+                # (タイム クライアント 1host目 2host目 サーバー)
                 Route = [rep_info_pack[10],rep_info_pack[0],rep_info_pack[1],\
                         rep_info_pack[2], rep_info_pack[3]]
                 RouteTable.append(Route)
@@ -322,7 +322,7 @@ def GET_part_send(client_socket, RouteTable, token_str, server_file_name, sep_da
         GET_pack = pickle.dumps(GET_pack) # 配列全体をバイト列に変換
         client_socket.send(GET_pack) # データ配列の送信
         client_socket.close()
-    
+
 # GETpartialコマンド(受け取り)
 def GET_part_rec(connection_socket, sep_data_s):
     # 応答の受け取り
@@ -373,10 +373,18 @@ def GET_part_cmd(RouteTable, token_str, server_file_name, data_size):
     print('routing Time:', SumTime)
     
     SumRatio = 0
-    # (合計時間 / 計測時間)のリスト作成
+
+    '''    
+    # (1 / 計測時間)のリスト作成(逆数の比)
     for i in range(0, len(RouteTable)):
-        ratio_list.append(SumTime / RouteTable[i][0])
-        SumRatio += (SumTime / RouteTable[i][0])
+        ratio_list.append(1. / RouteTable[i][0])
+        SumRatio += (1. / RouteTable[i][0])
+    '''
+    
+    # (1 / 計測時間)**2のリスト作成(逆数の比の2乗)
+    for i in range(0, len(RouteTable)):
+        ratio_list.append((1. / RouteTable[i][0])**2)
+        SumRatio += ((1. / RouteTable[i][0])**2)
 
     for i in range(0,len(RouteTable)):
         if i == 0: 
@@ -494,7 +502,7 @@ if __name__ == '__main__':
     print('mid_port', mid_port)
     
     print()
-
+    
     # ---------ネットワークの状態を調べる--------------
     print('-----routing-----')
     # 全てのホストに対してPingを実行(並列処理)
@@ -509,7 +517,7 @@ if __name__ == '__main__':
     # ThreadPoolExecutorでタイムアウトを実装している。
     tpe = ThreadPoolExecutor(max_workers=5)
     futures = []
-    TO_time = 60 # 保険で5秒でタイムアウトするように設定
+    TO_time = 60 # 保険で60秒でタイムアウトするように設定
     print(ad_first)
 
     routing_1host() # 1ホスト経由のルーティング(関数をthread化)
@@ -520,10 +528,12 @@ if __name__ == '__main__':
 
     # ---------ダウンロードしたファイルをルーティングした経路で送信---------    
     print('------download file------')
+    
     print('RouteTable:')
     print(*RouteTable, sep='\n')
 
     RouteTable = sorted(RouteTable) # timeによってソート
+
     if(len(RouteTable) >= 2):
         tmp_RouteTable = RouteTable
         RouteTable = []
@@ -547,7 +557,6 @@ if __name__ == '__main__':
     start_time = GET_part_cmd(RouteTable, token_str, server_file_name, data_size)
 
     print()
-    
     # REPコマンド
     print('REP Command')
     # print('my_port', my_port)
