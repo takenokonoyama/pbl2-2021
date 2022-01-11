@@ -17,10 +17,10 @@ import re
 BUFSIZE = 1024 # 受け取る最大のファイルサイズ
 my_name = os.uname()[1]  # クライアントのホスト名あるいはIPアドレスを表す文字列
 my_port = 53602 # クライアントのポート
-my_port_route = 53609 # クライアントのポート
-my_port_size = 53608
-my_port_get = 53607
-my_port_rep = 53606
+my_port_route = 53605 # クライアントのポート
+my_port_size = 53604
+my_port_get = 53603
+my_port_rep = 53602
 server_name = sys.argv[1] # サーバのホスト名
 server_port =  60623 # サーバのポート
 server_file_name = sys.argv[2] # サーバ側にあるファイル名
@@ -522,7 +522,7 @@ if __name__ == '__main__':
     print('------download file------')
     print('RouteTable:')
     print(*RouteTable, sep='\n')
-    
+
     RouteTable = sorted(RouteTable) # timeによってソート
     if(len(RouteTable) >= 2):
         tmp_RouteTable = RouteTable
