@@ -374,17 +374,18 @@ def GET_part_cmd(RouteTable, token_str, server_file_name, data_size):
     
     SumRatio = 0
 
-    '''    
     # (1 / 計測時間)のリスト作成(逆数の比)
     for i in range(0, len(RouteTable)):
         ratio_list.append(1. / RouteTable[i][0])
         SumRatio += (1. / RouteTable[i][0])
-    '''
     
+    
+    '''    
     # (1 / 計測時間)**2のリスト作成(逆数の比の2乗)
     for i in range(0, len(RouteTable)):
         ratio_list.append((1. / RouteTable[i][0])**2)
         SumRatio += ((1. / RouteTable[i][0])**2)
+    '''
 
     for i in range(0,len(RouteTable)):
         if i == 0: 
