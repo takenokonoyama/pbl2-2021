@@ -17,10 +17,10 @@ import re
 BUFSIZE = 1024 # 受け取る最大のファイルサイズ
 my_name = os.uname()[1]  # クライアントのホスト名あるいはIPアドレスを表す文字列
 my_port = 53602 # クライアントのポート
-my_port_route = 53605 # クライアントのポート
-my_port_size = 53602
-my_port_get = 53603
-my_port_rep = 53604
+my_port_route = 53609 # クライアントのポート
+my_port_size = 53608
+my_port_get = 53607
+my_port_rep = 53606
 server_name = sys.argv[1] # サーバのホスト名
 server_port =  60623 # サーバのポート
 server_file_name = sys.argv[2] # サーバ側にあるファイル名
@@ -32,9 +32,9 @@ mid_name = ''
 mid_port = 53601 # 中管理サーバのポート
 
 RouteTable = [] # 調べた経路を保存するリスト
-
-address = ["pbl1","pbl2","pbl3","pbl4"] # ローカル環境のアドレス
-# address = ["pbl1a","pbl2a","pbl3a","pbl4a", "pbl5a","pbl6a","pbl7a"]
+route_count = 0 
+# address = ["pbl1","pbl2","pbl3","pbl4"] # ローカル環境のアドレス
+address = ["pbl1a","pbl2a","pbl3a","pbl4a", "pbl5a","pbl6a","pbl7a"]
 ad_first = [] # 送信する1つめのホストはpingによって絞る
 
 # 応答の受け取り
@@ -141,26 +141,17 @@ def exchange_Routepacket_ping(ad1, ad2, ttl, rtt):
 
 # ping
 def Ping(ad):
-
     # 正規表現'%'が後ろにつく[0,100]の数字を検索するための正規表現オブジェクトを生成
-    regex = re.compile(r'[0-100](?=%)') 
+    regex = re.compile(r'\s[0-100](?=%)') 
     # ping -c 10 -w 1000 adrress
-
+    
     ping = subprocess.run(
-            ["ping", "-c", "10", "-W", "0.05","-i", "0.2","-s","1000","-q", ad],
+            ["ping", "-c", "10","-i", "0.2","-s","65507","-q", ad],
             stdout=subprocess.PIPE,     # 標準出力は判断のため保存
-            stderr=subprocess.DEVNULL # 標準エラーは捨てる
+            stderr=subprocess.PIPE # 標準エラーは捨てる
         )
     output = ping.stdout.decode("cp932")
     print(output)
-
-    # outputからrttの平均を抽出する
-    i = output.find('rtt')
-    rtt_info = output[i:]
-    rtt_info = re.split('[/ ]', rtt_info)
-    print(rtt_info)
-    rtt = float(rtt_info[7])
-
     # outputからpacketlossを抽出する
     packet_loss = regex.search(output)
     # pingコマンドが成功->パケットロス率を返す,失敗->パケットロス率を100％とする
@@ -168,7 +159,16 @@ def Ping(ad):
         return_p_loss = 100
     else:
         return_p_loss = float(packet_loss.group())
-
+    
+    if(return_p_loss != 100):
+        # outputからrttの平均を抽出する
+        i = output.find('rtt')
+        rtt_info = output[i:]
+        rtt_info = re.split('[/ ]', rtt_info)
+        print(rtt_info)
+        rtt = float(rtt_info[7])
+    else:
+        rtt = 1000000
     print('packetloss:',return_p_loss, 'to', ad)
 
     return ad, return_p_loss, rtt
@@ -195,7 +195,7 @@ def select_ad_first(route_info, p_loss_lim):
                 RouteTable.append([rtt, my_name, 'none', 'none', \
                                 server_name])
             ad_first.append((ad, rtt)) # tupleでappendする
-    
+
 # サーバに対して直接通信する経路を調べる
 def routing_dir():
     # ad_firstにserver_nameが入っていないならば実行しない
@@ -234,7 +234,7 @@ def routing_1host():
             # Route用パケットのやり取り
             future = tpe.submit(exchange_Routepacket_ping, ad, 'none', ttl, rtt)
             futures.append(future)
-            
+
 # ホスト2つを経由する場合の経路を調べる
 def routing_2host():
     # TCPで全てのホストに送信
@@ -249,16 +249,20 @@ def routing_2host():
 
 # tpeの実行(Routeパケットの受け取り)
 def recv_Route_packet(TO_time):
+    global route_count
     for future in futures:
         try:
             rep_info_pack = future.result(timeout=TO_time)
-
             if(rep_info_pack[4] == True):
+                route_count += 1
+
                 Route = [rep_info_pack[10],rep_info_pack[0],rep_info_pack[1],\
                         rep_info_pack[2], rep_info_pack[3]]
                 RouteTable.append(Route)
+            print(rep_info_pack)
         except:
             print('timeout or something else')
+
 # SIZE応答からデータサイズを読み取り
 def load_data_size(SIZE_msg):
     msg_list = SIZE_msg.split() # 空白で分割
@@ -292,7 +296,7 @@ def SIZE_cmd(RouteTable):
 
         # サーバからの応答の受け取り
         client_socket_recv = socket(AF_INET, SOCK_STREAM)
-        client_socket_recv.bind(('', my_port))
+        client_socket_recv.bind(('', my_port_size))
         client_socket_recv.listen(6)
         connection_socket, addr = client_socket_recv.accept()
         SIZE_sentence = rec_res(connection_socket)
@@ -478,7 +482,6 @@ def REP_cmd(RouteTable, server_file_name):
     return end_time  
 
 if __name__ == '__main__':
-
     print('----sending infomation----')
     # 情報の出力
     print('my name(初期値)', my_name)
@@ -504,19 +507,29 @@ if __name__ == '__main__':
     select_ad_first(packet_info, packet_loss_limit)
 
     # ThreadPoolExecutorでタイムアウトを実装している。
-    tpe = ThreadPoolExecutor(max_workers=26)
+    tpe = ThreadPoolExecutor(max_workers=5)
     futures = []
-    TO_time = 5 # 保険で5秒でタイムアウトするように設定
-    print('routing dir')
+    TO_time = 60 # 保険で5秒でタイムアウトするように設定
+    print(ad_first)
+
     routing_1host() # 1ホスト経由のルーティング(関数をthread化)
     print('routing 1host')
     routing_2host() # 2ホスト経由のルーティング(関数をthread化)
-    # print('routing 2host completed')
+    print('routing 2host')
     recv_Route_packet(TO_time) # threadの実行(パケットの受け取り)
 
     # ---------ダウンロードしたファイルをルーティングした経路で送信---------    
     print('------download file------')
+    print('RouteTable:')
+    print(*RouteTable, sep='\n')
+    
     RouteTable = sorted(RouteTable) # timeによってソート
+    if(len(RouteTable) >= 2):
+        tmp_RouteTable = RouteTable
+        RouteTable = []
+        for i in range(2):
+            RouteTable.append(tmp_RouteTable[i])
+    
     print('sorted RouteTable:')
     print(*RouteTable, sep='\n')
 

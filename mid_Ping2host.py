@@ -47,47 +47,47 @@ def receive_server_file(soc, file_name):
             f.write(data)  # 受け取ったデータをファイルに書き込む
 # ping
 def Ping_mid(ad, p_loss_lim):
-  flg = False
-  # 正規表現'%'が後ろにつく[0,100]の数字を検索するための正規表現オブジェクトを生成
-  regex = re.compile(r'[0-100](?=%)') 
-  # ping -c 10 -w 1000 adrress
+    flg = False
+    # 正規表現'%'が後ろにつく[0,100]の数字を検索するための正規表現オブジェクトを生成
+    regex = re.compile(r'\s[0-100](?=%)') 
+    # ping -c 10 -w 1000 adrress
 
-  ping = subprocess.run(
-          ["ping", "-c", "10", "-W", "0.05","-i", "0.2","-s", "1000","-q", ad],
-          stdout=subprocess.PIPE,     # 標準出力は判断のため保存
-          stderr=subprocess.DEVNULL # 標準エラーは捨てる
-      )
-  output = ping.stdout.decode("cp932")
-  print(output)
+    ping = subprocess.run(
+            ["ping", "-c", "10","-i", "0.2","-s", "65507","-q", ad],
+            stdout=subprocess.PIPE,     # 標準出力は判断のため保存
+            stderr=subprocess.PIPE
+            # stderr=subprocess.DEVNULL # 標準エラーは捨てる
+        )
+    output = ping.stdout.decode("cp932")
+    print(output)
+    # outputからpacketlossを抽出する
+    packet_loss = regex.search(output)
+    # pingコマンドが成功->パケットロス率を返す,失敗->パケットロス率を100％とする
+    if packet_loss == None:
+        return_p_loss = 100
+    else:
+        return_p_loss = float(packet_loss.group())
 
-  # outputからrttの平均を抽出する
-  i = output.find('rtt')
-  rtt_info = output[i:]
-  rtt_info = re.split('[/ ]', rtt_info)
-  print(rtt_info)
-  rtt = rtt_info[7]
+    if(return_p_loss <= p_loss_lim):
+        # outputからrttの平均を抽出する
+        i = output.find('rtt')
+        rtt_info = output[i:]
+        rtt_info = re.split('[/ ]', rtt_info)
+        print(rtt_info)
+        rtt = float(rtt_info[7])
+        flg = True
+    else:
+        rtt = 100000000
+    
+    print('packetloss:',return_p_loss, 'to', ad, flg)
 
-  # outputからpacketlossを抽出する
-  packet_loss = regex.search(output)
+    return flg, rtt
 
-  # pingコマンドが成功->パケットロス率を返す,失敗->パケットロス率を100％とする
-  if packet_loss == None:
-      return_p_loss = 100
-  else:
-      return_p_loss = float(packet_loss.group())
-
-  if(return_p_loss <= p_loss_lim):
-    flg = True
-  
-  print('packetloss:',return_p_loss, 'to', ad)
-
-  return flg, rtt
-
-  '''
-  packet_loss_list.extend(packet_loss)
-  succeed = result.find('ttl=') > 0        # pingの実行結果に「ttl=」の文字列があればpingが成功していると判断
-  list_result.append(0 if succeed else 1)  # pingが成功ならば 0 ,失敗ならば 1 と入力
-  '''
+    '''
+    packet_loss_list.extend(packet_loss)
+    succeed = result.find('ttl=') > 0        # pingの実行結果に「ttl=」の文字列があればpingが成功していると判断
+    list_result.append(0 if succeed else 1)  # pingが成功ならば 0 ,失敗ならば 1 と入力
+    '''
 
 def send_packet(name, port, pack):
   soc = socket(AF_INET, SOCK_STREAM)
@@ -111,12 +111,21 @@ def relay_packet(connect_soc):
         if(pack[8] == 'req'):
             # TTL(pack[5])==2ならば、転送管理サーバへ送信
             if(pack[5] == 2):
-                # 経由するホストが増えるのでrelay_num(info_pack[6])をインクリメント
-                pack[6] += 1 
+              mid_name = pack[pack[6]+1]
+              flg_ping, rtt = Ping_mid(mid_name, 3)
+              if(flg_ping):
+                pack[6] += 1 # relay_numをインクリメント
                 pack[5] -= 1 # TTLをデクリメント
-                mid_name = pack[pack[6]]
-                send_packet(mid_name, my_port,pack)
-            
+                # 経由するホストが増えるのでrelay_num(info_pack[6])をインクリメント
+                pack[10] += rtt
+                send_packet(mid_name, my_port, pack)
+              else:
+                pack[6] -= 1
+                pack[4] = False
+                pack[8] = 'rep'
+                cl_port = pack[9]
+                send_packet(cl_name, cl_port, pack)
+
             # TTL(info_pack[5])==1ならばTTLを1つ減らして、サーバと同じ名前の転送管理サーバへping
             # その後pingがタイムアウトorパケットロスしなければrouteパケットを転送管理サーバへ送信
             elif(pack[5] == 1):
@@ -129,14 +138,20 @@ def relay_packet(connect_soc):
                   pack[10] += rtt # rttを加算
                   send_packet(server_name, my_port, pack)
                 
-                # 悪い経路だったらクライアントに戻る
+                # 悪い経路だったら1コ前に戻る
                 else: 
+                  pack[6] -= 1
                   pack[4] = False # パケットが正当な経路で送られなかったのでFalse
-                  # pack[6] -= 1
-                  # cl_name = pack[pack[6]]
-                  cl_port = pack[9]
+                  pack[8] = 'rep'
+                  pack[5] -= 1 # TTLをデクリメント
 
-                  send_packet(cl_name,cl_port, pack)
+                  if(pack[pack[6]] == cl_name):
+                    cl_port = pack[9]
+                    send_packet(cl_name, cl_port, pack)
+                    
+                  else:
+                    mid_name = pack[pack[6]]
+                    send_packet(mid_name, my_port, pack)
 
             # TTL==0ならばその転送管理サーバはサーバと同じ名前をもつ
             elif(pack[5] == 0):
@@ -151,7 +166,7 @@ def relay_packet(connect_soc):
                     mid_name = pack[pack[6]]
                     # print(mid_name)
                     pack[8] = 'rep' # パケットを応答用に変更
-                    send_packet(mid_name, mid_port)
+                    send_packet(mid_name, mid_port, pack)
 
         elif(pack[8] == 'rep'):
             # 応答のとき、relay_num(pack[6])はhostの番号を指している
