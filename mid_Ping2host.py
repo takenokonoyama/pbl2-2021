@@ -283,10 +283,17 @@ def openfile(file_name, soc) :
     # print(path)
     with open(file_name, 'rb') as f:
         s = f.read()
-        soc.send(s) # 1文字ずつ送る
+        soc.send(s)
+        """ 
+        while True:
+            ch = f.read(1)
+            if not len(ch):
+                break
+            soc.send(ch) 
         
         # for line in f:
         #    soc.sendall(line) # 1列ずつ送る
+        """
 
 def main():
     # -----転送管理サーバを経由してサーバとクライアントの通信をする----  

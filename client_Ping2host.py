@@ -9,7 +9,6 @@ import pbl2
 import pickle
 import threading
 import os
-import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import subprocess
 import re
@@ -33,8 +32,8 @@ mid_port = 53601 # 中管理サーバのポート
 
 RouteTable = [] # 調べた経路を保存するリスト
 route_count = 0 
-# address = ["pbl1","pbl2","pbl3","pbl4"] # ローカル環境のアドレス
-address = ["pbl1a","pbl2a","pbl3a","pbl4a", "pbl5a","pbl6a","pbl7a"]
+address = ["pbl1","pbl2","pbl3","pbl4"] # ローカル環境のアドレス
+#address = ["pbl1a","pbl2a","pbl3a","pbl4a", "pbl5a","pbl6a","pbl7a"]
 ad_first = [] # 送信する1つめのホストはpingによって絞る
 
 # 応答の受け取り
@@ -375,8 +374,8 @@ def GET_part_cmd(RouteTable, token_str, server_file_name, data_size):
     SumRatio = 0
     # (合計時間 / 計測時間)のリスト作成
     for i in range(0, len(RouteTable)):
-        ratio_list.append(SumTime / RouteTable[i][0])
-        SumRatio += (SumTime / RouteTable[i][0])
+        ratio_list.append(1 / RouteTable[i][0]**2)
+        SumRatio += (1 / RouteTable[i][0]**2)
 
     for i in range(0,len(RouteTable)):
         if i == 0: 
@@ -524,12 +523,13 @@ if __name__ == '__main__':
     print(*RouteTable, sep='\n')
     
     RouteTable = sorted(RouteTable) # timeによってソート
+    """
     if(len(RouteTable) >= 2):
         tmp_RouteTable = RouteTable
         RouteTable = []
         for i in range(2):
             RouteTable.append(tmp_RouteTable[i])
-    
+    """
     print('sorted RouteTable:')
     print(*RouteTable, sep='\n')
 
