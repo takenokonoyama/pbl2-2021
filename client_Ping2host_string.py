@@ -6,36 +6,34 @@ from socket import *
 import time
 import sys
 import pbl2
-import pickle
 import threading
 import os
 from concurrent.futures import ThreadPoolExecutor
 import subprocess
 import re
 
-BUFSIZE = 1024 # 受け取る最大のファイルサイズ
 # --------------------------------------------------------------------------------------
 
 # -----クライアント設定------------
 my_name = os.uname()[1]  # クライアントのホスト名あるいはIPアドレスを表す文字列
 my_port = 53602 # クライアントのポート
-my_port_route = 53678 # クライアントのポート(念のため)
-my_port_size = 53634 # クライアントのポート(size)
-my_port_get = 53632 # クライアントのポート(get)
-my_port_rep = 53626 # クライアントのポート(rep)
+my_port_route = 53609 # クライアントのポート(念のため)
+my_port_size = 53608 # クライアントのポート(size)
+my_port_get = 53607 # クライアントのポート(get)
+my_port_rep = 53606 # クライアントのポート(rep)
 
 # ---------サーバ(転送管理サーバ)設定-------------
 server_name = sys.argv[1] # サーバのホスト名
 server_port =  60623 # サーバのポート
 server_file_name = sys.argv[2] # サーバ側にあるファイル名
 mid_name = '' # 中間管理サーバの名前
-mid_port = 53601 # 中管理サーバのポート
+mid_port = 53650 # 中管理サーバのポート
 
 # ----- Route用設定-------------
 RouteTable = [] # 調べた経路を保存するリスト
 route_count = 0 
-address = ["pbl1","pbl2","pbl3","pbl4"] # ローカル環境のアドレス
-# address = ["pbl1a","pbl2a","pbl3a","pbl4a", "pbl5a","pbl6a","pbl7a"]
+# address = ["pbl1","pbl2","pbl3","pbl4"] # ローカル環境のアドレス
+address = ["pbl1a","pbl2a","pbl3a","pbl4a", "pbl5a","pbl6a","pbl7a"]
 ad_first = [] # 送信する1つめのホストはpingによって絞る
 
 # -------コマンド用設定------------
@@ -43,6 +41,7 @@ key = '' # トークンキー
 token_str = sys.argv[3] # トークン文字列
 sdata_num = 0 # ファイル受け取りを正当な順番でするために必要な変数
 rec_file_name = 'received_data.dat' # 受け取ったデータを書き込むファイル
+BUFSIZE = 1024 # 受け取る最大のファイルサイズ
 
 # ---------------------------------------------------------------------------------
 
@@ -96,7 +95,7 @@ def REP(file_name):
     return msg
 
 # serverからのfileの受け取り
-def receive_server_file(soc,s_data_num):
+def receive_server_file(soc, s_data_num):
     # 書き込み用ファイルをオープンして処理
     #   ファイル絡みの例外処理とクローズの処理は書く必要がありません
     if s_data_num==0: #新規ファイル作成
@@ -112,11 +111,11 @@ def receive_server_file(soc,s_data_num):
 
 # routeパケットを適切な型に変換
 def fix_route_packet(pack):
-  if(pack[4] == 'False'):
-      pack[4] = False
-  elif(pack[4] == 'True'):
+    if(pack[4] == 'False'):
+        pack[4] = False
+    elif(pack[4] == 'True'):
+        pack[4] = True
 
-    pack[4] = True
     pack[5] = int(pack[5])
     pack[6] = int(pack[6])
     pack[9] = int(pack[9])
@@ -175,25 +174,26 @@ def exchange_Routepacket_ping(ad1, ad2, ttl, rtt):
 # ping
 def Ping(ad):
     # 正規表現'%'が後ろにつく[0,100]の数字を検索するための正規表現オブジェクトを生成
-    regex = re.compile(r'\s[0-100](?=%)')
+    # regex = re.compile(r'\s[0-100](?=%)')
+    regex = re.compile(r'\d{1,3}(?=%)')
 
-    '''
     ping = subprocess.run(
-          ["ping", "-c", "10","-i", "0.2","-s","65507","-q", ad],
+          ["ping", "-c", "20","-i", "0.2","-s","65507","-q", ad],
           stdout=subprocess.PIPE,     # 標準出力は判断のため保存
-          stderr=subprocess.PIPE # 標準エラーは捨てる
-      )
+          stderr=subprocess.DEVNULL # 標準エラーは捨てる
+    )
+    
     '''
-      
+    ローカルデバック用
     ping = subprocess.run(
           ["ping", "-c", "10","-i", "0.2","-s","1000","-q", ad],
           stdout=subprocess.PIPE,     # 標準出力は判断のため保存
           stderr=subprocess.PIPE # 標準エラーは捨てる
         )
+    '''
     
     # pingの出力
     output = ping.stdout.decode("cp932")
-    print(output)
     # outputからパケロスの数値を抽出する
     packet_loss = regex.search(output)
 
@@ -349,6 +349,11 @@ def GET_part_send(client_socket, RouteTable, token_str, server_file_name, sep_da
         client_socket.send(get_msg.encode())
     else:
         # -------GETパケット要求の送信---------
+        """
+        GET用パケット
+        GET_pack = [クライアント名, 経由する1ホスト目, 経由する2ホスト目, サーバ, コマンドの種類(GET), コマンド要求文字列, \
+                        経由回数, パケットの種類(Com), 要求(req) or 応答(rep), GET用のクライアントのポート番号]
+        """
         GET_pack = f"{RouteTable[i][1]}/{RouteTable[i][2]}/{RouteTable[i][3]}/{RouteTable[i][4]}/GET/{GET_part(server_file_name, token_str, sep_data_s, sep_data_e)}/{1}/Com/req/{my_port_get}"
         GET_pack += '\n'
         client_socket.send(GET_pack.encode()) # データ配列の送信
@@ -487,8 +492,11 @@ def REP_cmd(RouteTable, server_file_name):
         # REP要求用パケットの送信
         client_socket = socket(AF_INET, SOCK_STREAM)
         client_socket.connect((RouteTable[0][2], mid_port)) # 送信するホストとコネクション
-        #REP_pack = [RouteTable[0][1],RouteTable[0][2],RouteTable[0][3], RouteTable[0][4],\
-        #                'REP', REP(server_file_name), 1, 'Com', 'req', my_port_rep]
+        """
+        GET用パケット
+        GET_pack = [クライアント名, 経由する1ホスト目, 経由する2ホスト目, サーバ, コマンドの種類(GET), コマンド要求文字列, \
+                        経由回数, パケットの種類(Com), 要求(req) or 応答(rep), GET用のクライアントのポート番号]
+        """
         REP_pack = f"{RouteTable[0][1]}/{RouteTable[0][2]}/{RouteTable[0][3]}/{RouteTable[0][4]}/REP/{REP(server_file_name)}/{1}/Com/req/{my_port_rep}"
         REP_pack += '\n'
 
@@ -536,7 +544,7 @@ if __name__ == '__main__':
     # ThreadPoolExecutorでタイムアウトを実装している。
     tpe = ThreadPoolExecutor(max_workers=5)
     futures = []
-    TO_time = 60 # 保険で5秒でタイムアウトするように設定
+    TO_time = 60 # 保険で60秒でタイムアウトするように設定
 
     routing_1host() # 1ホスト経由のルーティング(関数をthread化)
     print('routing 1host')
@@ -550,13 +558,12 @@ if __name__ == '__main__':
     print(*RouteTable, sep='\n')
     
     RouteTable = sorted(RouteTable) # timeによってソート
-    """    
+
     if(len(RouteTable) >= 2):
         tmp_RouteTable = RouteTable
         RouteTable = []
         for i in range(2):
             RouteTable.append(tmp_RouteTable[i])
-    """
     
     print('sorted RouteTable:')
     print(*RouteTable, sep='\n')

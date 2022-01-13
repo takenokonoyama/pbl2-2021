@@ -14,7 +14,7 @@ cl_port = 53602 # クライアントのポート番号
 
 # -------サーバ(転送管理サーバ)設定---------
 my_name = os.uname()[1] # 自身のサーバ名
-my_port =  53601 # 自身(転送管理サーバ)のポート
+my_port =  53650 # 自身(転送管理サーバ)のポート
 mid_port = my_port # 転送管理サーバのポートは共通
 server_name = '' # サーバ名
 server_port = 60623 # サーバポート
@@ -47,11 +47,12 @@ def receive_server_file(soc, file_name):
             if len(data) <= 0:  # 受信したデータがゼロなら、相手からの送信は全て終了
                 break
             f.write(data)  # 受け取ったデータをファイルに書き込む
+
 # ping
 def Ping_mid(ad, p_loss_lim):
     flg = False
     # 正規表現'%'が後ろにつく[0,100]の数字を検索するための正規表現オブジェクトを生成
-    regex = re.compile(r'\s[0-100](?=%)') 
+    regex = re.compile(r'\d{1,3}(?=%)') 
     # ping -c 10 -w 1000 adrress
 
     ping = subprocess.run(
@@ -91,6 +92,7 @@ def Ping_mid(ad, p_loss_lim):
     succeed = result.find('ttl=') > 0        # pingの実行結果に「ttl=」の文字列があればpingが成功していると判断
     list_result.append(0 if succeed else 1)  # pingが成功ならば 0 ,失敗ならば 1 と入力
     '''
+
 # Routeパケットの送信に使う
 def send_packet(name, port, pack):
   soc = socket(AF_INET, SOCK_STREAM)
@@ -101,6 +103,27 @@ def send_packet(name, port, pack):
   # print(pack_str)
   soc.send(pack_str.encode()) # データ配列の送信
   soc.close()
+
+# routeパケットを適切な型に変換
+def fix_route_packet(pack):
+    if(pack[4] == 'False'):
+        pack[4] = False
+    elif(pack[4] == 'True'):
+        pack[4] = True
+
+    pack[5] = int(pack[5])
+    pack[6] = int(pack[6])
+    pack[9] = int(pack[9])
+    pack[10] = float(pack[10])
+
+    return pack
+
+# comパケットを適切な型に変換
+def fic_com_packet(pack):
+    pack[6] = int(pack[6])
+    pack[9] = int(pack[9])
+
+    return pack
 
 # comパケットの送信に使う
 def send_com_packet(name, port, pack, file_name):
@@ -131,15 +154,8 @@ def relay_packet(connect_soc):
                 , 指定した経路でのrttの累積]
         """
         # パケットの要素を適切な型に変換
-        if(pack[4] == 'False'):
-            pack[4] = False
-        elif(pack[4] == 'True'):
-          pack[4] = True
+        pack = fix_route_packet(pack)
         
-        pack[5] = int(pack[5])
-        pack[6] = int(pack[6])
-        pack[9] = int(pack[9])
-        pack[10] = float(pack[10])
         server_name = pack[3] # パケットからサーバ名の取得
         cl_name = pack[0] # パケットからクライアント名を取得
 
@@ -220,8 +236,8 @@ def relay_packet(connect_soc):
     # ----コマンド用のパケットだった場合
     elif(pack[7] == 'Com'):
 
-        pack[6] = int(pack[6])
-        pack[9] = int(pack[9])
+        pack = fic_com_packet(pack)
+        
         server_name = pack[3] # パケットからサーバ名の取得
 
         if(pack[8] == 'req'): # パケットが要求用
@@ -308,8 +324,6 @@ def relay_packet(connect_soc):
     connect_soc.close()
 
 def openfile(file_name, soc) :
-
-    # print(path)
     with open(file_name, 'rb') as f:
         s = f.read()
         soc.send(s)
