@@ -35,6 +35,7 @@ route_count = 0
 #address = ["pbl1","pbl2","pbl3","pbl4"] # ローカル環境のアドレス
 address = ["pbl1a","pbl2a","pbl3a","pbl4a", "pbl5a","pbl6a","pbl7a"]
 ad_first = [] # 送信する1つめのホストはpingによって絞る
+tmp=""#竹澤大樹実験
 
 # -------コマンド用設定------------
 key = '' # トークンキー
@@ -267,6 +268,7 @@ def routing_2host():
 # tpeの実行(Routeパケットの受け取り)
 def recv_Route_packet(TO_time):
     global route_count
+    global tmp
     for future in futures:
         try:
             # Routeの関数を並列実行
@@ -280,7 +282,10 @@ def recv_Route_packet(TO_time):
                         rep_info_pack[2], rep_info_pack[3]]
 
                 # Routeテーブルに各経路でのルーティング結果を格納
-                RouteTable.append(Route)
+                if tmp != rep_info_pack[1]:#竹澤大樹実験
+                    RouteTable.append(Route)#竹澤大樹実験
+                    tmp=rep_info_pack[1]#竹澤大樹実験
+                #RouteTable.append(Route)
             print(rep_info_pack)
         except:
             print('timeout or something else')
