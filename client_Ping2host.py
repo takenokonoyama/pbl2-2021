@@ -16,10 +16,10 @@ import re
 BUFSIZE = 1024 # 受け取る最大のファイルサイズ
 my_name = os.uname()[1]  # クライアントのホスト名あるいはIPアドレスを表す文字列
 my_port = 53602 # クライアントのポート
-my_port_route = 53609 # クライアントのポート
-my_port_size = 53608
-my_port_get = 53607
-my_port_rep = 53606
+my_port_route = 53663 # クライアントのポート
+my_port_size = 53662
+my_port_get = 53650
+my_port_rep = 53650
 server_name = sys.argv[1] # サーバのホスト名
 server_port =  60623 # サーバのポート
 server_file_name = sys.argv[2] # サーバ側にあるファイル名
@@ -32,8 +32,8 @@ mid_port = 53601 # 中管理サーバのポート
 
 RouteTable = [] # 調べた経路を保存するリスト
 route_count = 0 
-address = ["pbl1","pbl2","pbl3","pbl4"] # ローカル環境のアドレス
-#address = ["pbl1a","pbl2a","pbl3a","pbl4a", "pbl5a","pbl6a","pbl7a"]
+# address = ["pbl1","pbl2","pbl3","pbl4"] # ローカル環境のアドレス
+address = ["pbl1a","pbl2a","pbl3a","pbl4a", "pbl5a","pbl6a","pbl7a"]
 ad_first = [] # 送信する1つめのホストはpingによって絞る
 
 # 応答の受け取り
@@ -141,14 +141,23 @@ def exchange_Routepacket_ping(ad1, ad2, ttl, rtt):
 # ping
 def Ping(ad):
     # 正規表現'%'が後ろにつく[0,100]の数字を検索するための正規表現オブジェクトを生成
-    regex = re.compile(r'\s[0-100](?=%)') 
+    regex = re.compile(r'\d{1,2}(?=%)') 
     # ping -c 10 -w 1000 adrress
     
+    '''   
+     ping = subprocess.run(
+          ["ping", "-c", "10","-i", "0.2","-s","65507","-q", ad],
+          stdout=subprocess.PIPE,     # 標準出力は判断のため保存
+          stderr=subprocess.PIPE # 標準エラーは捨てる
+      )
+    '''
+      
     ping = subprocess.run(
-            ["ping", "-c", "10","-i", "0.2","-s","65507","-q", ad],
-            stdout=subprocess.PIPE,     # 標準出力は判断のため保存
-            stderr=subprocess.PIPE # 標準エラーは捨てる
+          ["ping", "-c", "10","-i", "0.2","-s","1000","-q", ad],
+          stdout=subprocess.PIPE,     # 標準出力は判断のため保存
+          stderr=subprocess.PIPE # 標準エラーは捨てる
         )
+    
     output = ping.stdout.decode("cp932")
     print(output)
     # outputからpacketlossを抽出する
@@ -250,7 +259,7 @@ def routing_2host():
 def recv_Route_packet(TO_time):
     global route_count
     for future in futures:
-        try:
+        # try:
             rep_info_pack = future.result(timeout=TO_time)
             if(rep_info_pack[4] == True):
                 route_count += 1
@@ -259,8 +268,8 @@ def recv_Route_packet(TO_time):
                         rep_info_pack[2], rep_info_pack[3]]
                 RouteTable.append(Route)
             print(rep_info_pack)
-        except:
-            print('timeout or something else')
+        # except:
+            # print('timeout or something else')
 
 # SIZE応答からデータサイズを読み取り
 def load_data_size(SIZE_msg):
@@ -530,6 +539,7 @@ if __name__ == '__main__':
         for i in range(2):
             RouteTable.append(tmp_RouteTable[i])
     """
+
     print('sorted RouteTable:')
     print(*RouteTable, sep='\n')
 

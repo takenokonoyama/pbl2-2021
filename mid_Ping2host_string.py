@@ -14,7 +14,7 @@ cl_port = 53602 # クライアントのポート番号
 
 # -------サーバ(転送管理サーバ)設定---------
 my_name = os.uname()[1] # 自身のサーバ名
-my_port =  53650 # 自身(転送管理サーバ)のポート
+my_port =  53601 # 自身(転送管理サーバ)のポート
 mid_port = my_port # 転送管理サーバのポートは共通
 server_name = '' # サーバ名
 server_port = 60623 # サーバポート
@@ -83,24 +83,24 @@ def Ping_mid(ad, p_loss_lim):
     else:
         rtt = 100000000
     
-    # print('packetloss:',return_p_loss, 'to', ad, flg)
+    print()
+    print('ping to',ad)
+    print('packetloss:',return_p_loss,'rtt',rtt, flg)
+    print()
 
     return flg, rtt
 
-    '''
-    packet_loss_list.extend(packet_loss)
-    succeed = result.find('ttl=') > 0        # pingの実行結果に「ttl=」の文字列があればpingが成功していると判断
-    list_result.append(0 if succeed else 1)  # pingが成功ならば 0 ,失敗ならば 1 と入力
-    '''
-
 # Routeパケットの送信に使う
-def send_packet(name, port, pack):
-  soc = socket(AF_INET, SOCK_STREAM)
-  soc.connect((name, port))
+def send_packet(soc, pack):
   # pack_array = pack # 
   pack_str = '/'.join(map(str,pack)) # 配列の要素を/で区切り、文字列にする
   pack_str += '\n'
-  # print(pack_str)
+  
+  print()
+  print('send_packet')
+  print(pack_str)
+  print()
+  
   soc.send(pack_str.encode()) # データ配列の送信
   soc.close()
 
@@ -126,25 +126,32 @@ def fic_com_packet(pack):
     return pack
 
 # comパケットの送信に使う
-def send_com_packet(name, port, pack, file_name):
-  soc = socket(AF_INET, SOCK_STREAM)
-  soc.connect((name, port))
-  pack_array = pack
-  pack_str = '/'.join(map(str,pack))
-  pack_str += '\n'
-  soc.send(pack_str.encode()) # データ配列の送信
+def send_com_packet(soc, pack, file_name):
+    pack_array = pack
+    pack_str = '/'.join(map(str,pack))
+    pack_str += '\n'
+    soc.send(pack_str.encode()) # データ配列の送信
+    
+    print()
+    print('send_com_packet')
+    print(pack_str)
+    print()
 
-  if(pack_array[4] == 'GET'):
-      # print('sending file to',name, file_name)
-      openfile(file_name, soc)
-  soc.close()
+    if(pack_array[4] == 'GET'):
+        # print('sending file to',name, file_name)
+        openfile(file_name, soc)
+    soc.close()
 
 def relay_packet(connect_soc):
     global rec_count # ファイル名の衝突を避けるためのカウント変数
-
     pack_string = rec_res(connect_soc) #　パケット(文字列区切り)受け取り
+    print()
+    print('recv_packet')
+    print(pack_string)
+    print()
+
     pack = pack_string.split('/') # /で区切ってリストに格納(各要素は文字列として認識される→intやboolに変換が必要)
- 
+    
     # -----Routing用のパケットだった場合-----
     if(pack[7] == 'Route'):
         """
@@ -153,8 +160,10 @@ def relay_packet(connect_soc):
                 , 経由回数, パケットの種類(Route), 送信用(req) or 応答用(rep), クライアントのポート番号\
                 , 指定した経路でのrttの累積]
         """
+
         # パケットの要素を適切な型に変換
         pack = fix_route_packet(pack)
+        send_pack = pack # 送信用パケット
         
         server_name = pack[3] # パケットからサーバ名の取得
         cl_name = pack[0] # パケットからクライアント名を取得
@@ -163,123 +172,154 @@ def relay_packet(connect_soc):
             # TTL(pack[5])==2ならば、転送管理サーバへ送信
             if(pack[5] == 2):
               mid_name = pack[pack[6]+1]
-              flg_ping, rtt = Ping_mid(mid_name, 3)
+              flg_ping, rtt = Ping_mid(mid_name, 0)
               if(flg_ping):
-                pack[6] += 1 # relay_numをインクリメント
-                pack[5] -= 1 # TTLをデクリメント
+                send_pack[6] += 1 # relay_numをインクリメント
+                send_pack[5] -= 1 # TTLをデクリメント
                 # 経由するホストが増えるのでrelay_num(info_pack[6])をインクリメント
-                pack[10] += rtt
-                send_packet(mid_name, my_port, pack)
+                send_pack[10] += rtt
+                soc_to_mid = socket(AF_INET, SOCK_STREAM)
+                soc_to_mid.connect((mid_name, mid_port))    
+                send_packet(soc_to_mid, send_pack)
 
               else:
-                pack[6] -= 1
-                pack[4] = False
-                pack[8] = 'rep'
-                cl_port = pack[9]
-                send_packet(cl_name, cl_port, pack)
+                send_pack[6] -= 1
+                send_pack[4] = False
+                send_pack[8] = 'rep'
+                cl_port = send_pack[9]
+                soc_to_cl = socket(AF_INET, SOCK_STREAM)
+                soc_to_cl.connect((cl_name, cl_port))
+                send_packet(soc_to_cl, send_pack)
 
             # TTL(info_pack[5])==1ならばTTLを1つ減らして、サーバと同じ名前の転送管理サーバへping
             # その後pingがタイムアウトorパケットロスしなければrouteパケットを転送管理サーバへ送信
             elif(pack[5] == 1):
-                flg_ping, rtt = Ping_mid(server_name, 3)
+                flg_ping, rtt = Ping_mid(server_name, 0)
                 # pingで良い経路であると分かったらrttを加えてパケットを送信
                 if(flg_ping):
-                  # 経由するホストが増えるのでrelay_num(info_pack[6])をインクリメント
-                  pack[6] += 1
-                  pack[5] -= 1 # TTLをデクリメント
-                  pack[10] += rtt # rttを加算
-                  send_packet(server_name, my_port, pack)
+                    # 経由するホストが増えるのでrelay_num(info_pack[6])をインクリメント
+                    send_pack[6] += 1
+                    send_pack[5] -= 1 # TTLをデクリメント
+                    send_pack[10] += rtt # rttを加算
+                    soc_to_ser = socket(AF_INET, SOCK_STREAM)
+                    soc_to_ser.connect((server_name, my_port))
+                    send_packet(soc_to_ser, send_pack)
                 
                 # 悪い経路だったら1コ前に戻る
                 else: 
-                  pack[6] -= 1
-                  pack[4] = False # パケットが正当な経路で送られなかったのでFalse
-                  pack[8] = 'rep'
-                  pack[5] -= 1 # TTLをデクリメント
+                  send_pack[6] -= 1
+                  send_pack[4] = False # パケットが正当な経路で送られなかったのでFalse
+                  send_pack[8] = 'rep'
+                  send_pack[5] -= 1 # TTLをデクリメント
 
-                  if(pack[pack[6]] == cl_name):
-                    cl_port = pack[9]
-                    send_packet(cl_name, cl_port, pack)
+                  if(send_pack[send_pack[6]] == cl_name):
+                    cl_port = send_pack[9]
+                    soc_to_cl = socket(AF_INET, SOCK_STREAM)
+                    soc_to_cl.connect((cl_name, cl_port))
+                    send_packet(soc_to_cl, send_pack)
                     
                   else:
-                    mid_name = pack[pack[6]]
-                    send_packet(mid_name, my_port, pack)
+                    mid_name = send_pack[send_pack[6]]
+                    soc_to_mid = socket(AF_INET, SOCK_STREAM)
+                    soc_to_mid.connect((mid_name, my_port))
+                    send_packet(soc_to_mid, send_pack)
 
             # TTL==0ならばその転送管理サーバはサーバと同じ名前をもつ
             elif(pack[5] == 0):
-                pack[6] -= 1
+                send_pack[6] -= 1
                 # relay_num == 0 ならばサーバと直接通信のルーティング
-                if(pack[6] == 0):
-                    cl_name = pack[pack[6]]
-                    cl_port = pack[9]
-                    pack[8] = 'rep' # パケットを応答用に変更
-                    send_packet(cl_name, cl_port, pack)
+                if(send_pack[6] == 0):
+                    send_pack[8] = 'rep' # パケットを応答用に変更
+                    cl_name = send_pack[send_pack[6]]
+                    cl_port = send_pack[9]
+                    soc_to_cl = socket(AF_INET, SOCK_STREAM)
+                    soc_to_cl.connect((cl_name, cl_port))
+                    send_packet(soc_to_cl, send_pack)
                 else:
-                    mid_name = pack[pack[6]]
+                    mid_name = send_pack[send_pack[6]]
                     # print(mid_name)
-                    pack[8] = 'rep' # パケットを応答用に変更
-                    send_packet(mid_name, mid_port, pack)
+                    send_pack[8] = 'rep' # パケットを応答用に変更
+                    soc_to_mid = socket(AF_INET, SOCK_STREAM)
+                    soc_to_mid.connect((mid_name, mid_port))
+                    send_packet(soc_to_mid, send_pack)
 
         elif(pack[8] == 'rep'):
             # 応答のとき、relay_num(pack[6])はhostの番号を指している
-            pack[6] -= 1
-            if(pack[6] == 0):
-                cl_name = pack[0] # クライアント名
-                cl_port = pack[9] # クライアントのポート
-                send_packet(cl_name, cl_port, pack)
+            send_pack[6] -= 1
+            if(send_pack[6] == 0):
+                cl_name = send_pack[0] # クライアント名
+                cl_port = send_pack[9] # クライアントのポート
+                soc_to_cl = socket(AF_INET, SOCK_STREAM)
+                soc_to_cl.connect((cl_name, cl_port))
+                send_packet(soc_to_cl, send_pack)
             
-            elif(pack[6] == 1):
-                mid_name = pack[pack[6]]
+            elif(send_pack[6] == 1):
+                mid_name = send_pack[send_pack[6]]
                 # print(mid_name)
-                send_packet(mid_name, mid_port, pack)
+                soc_to_mid = socket(AF_INET, SOCK_STREAM)
+                soc_to_mid.connect((mid_name, my_port))
+                send_packet(soc_to_mid, send_pack)
 
     # ----コマンド用のパケットだった場合
     elif(pack[7] == 'Com'):
 
         pack = fic_com_packet(pack)
-        
+        send_pack = pack
         server_name = pack[3] # パケットからサーバ名の取得
 
         if(pack[8] == 'req'): # パケットが要求用
             # 経路が1ホスト経由だった場合
-            if(pack[pack[6]+1] == 'none'): # pack[6](参照番号) == 1である
-                pack[6] += 1 # 参照番号をインクリメント
+            if(pack[pack[6]+1] == 'none'): # pack[6](経由数) == 1である
+                send_pack[6] += 1 # 経由数をインクリメント
                 # ----サーバとのやり取り(コマンド要求・受け取り)--------
                 soc_to_ser = socket(AF_INET, SOCK_STREAM)
                 soc_to_ser.connect((server_name, server_port))
                 req_sentence = pack[5]
                 req_sentence += '\n'
                 soc_to_ser.send(req_sentence.encode())
-                sentence = rec_res(soc_to_ser)
+                sentence = rec_res(soc_to_ser) # コマンド応答
                 print(sentence)
+                sentence += '\n'
+        
                 file_name = str(rec_count)+rec_file_name
                 rec_count+=1
+                
+                # connect_soc.send(sentence.encode())
                 if(pack[4] == 'GET'):
                     # print('received server file')
+                    """                     
+                    while True:
+                        b = soc_to_ser.recv(1024)
+                        connect_soc.send(b)
+                        if(len(b) <= 0):
+                            break 
+                    """
                     receive_server_file(soc_to_ser, file_name)
                 soc_to_ser.close()
 
                 # ----クライアントとのやり取り----
                 cl_name = pack[0]
                 cl_port = pack[9]
-                sentence += '\n'
+
                 soc_to_cl = socket(AF_INET, SOCK_STREAM)
                 soc_to_cl.connect((cl_name, cl_port))  
                 soc_to_cl.send(sentence.encode())
                 
                 if(pack[4] == 'GET'):
-                   #  print('sending file to',cl_name, file_name)
+                    print('sending file to',cl_name, file_name)
                     openfile(file_name, soc_to_cl)
-                soc_to_cl.close()
+                
             else:
                 # 転送管理サーバへパケットを送信
                 if(pack[6] == 1):
-                    pack[6] += 1 # 参照番号をインクリメント
-                    mid_name = pack[pack[6]] 
-                    send_packet(mid_name, my_port, pack)
-                
+                    send_pack[6] += 1 # 参照番号をインクリメント
+                    mid_name = send_pack[send_pack[6]]                     
+                    soc_to_mid = socket(AF_INET, SOCK_STREAM)
+                    soc_to_mid.connect((mid_name, mid_port))
+                    send_packet(soc_to_mid, send_pack)
+
                 elif(pack[6] == 2):
-                    pack[6] -= 1
+                    send_pack[6] -= 1
                     # ----サーバに対するコマンド要求・受け取り--------
                     soc_to_ser = socket(AF_INET, SOCK_STREAM)
                     soc_to_ser.connect((server_name, server_port))
@@ -291,17 +331,19 @@ def relay_packet(connect_soc):
                     file_name = str(rec_count)+rec_file_name
                     rec_count+=1
                     if(pack[4] == 'GET'):
-                        # print('received server file')
+                        print('received server file')
                         receive_server_file(soc_to_ser, file_name)
                     soc_to_ser.close()
+    
+                    # ----転送管理サーバとのやり取り---
+                    mid_name = send_pack[send_pack[6]]
+                    send_pack[8] = 'rep' # パケットを応答用に変換
+                    send_pack[5] = sentence
+                    soc_to_mid = socket(AF_INET, SOCK_STREAM)
+                    soc_to_mid.connect((mid_name, mid_port))
 
-                    # ----転送管理サーバとのやり取り----
-                    mid_name = pack[pack[6]]
-                    pack[8] = 'rep' # パケットを応答用に変換
-                    pack[5] = sentence
-                    print('pack5',pack[5])
-                    send_com_packet(mid_name, my_port, pack, file_name)
-
+                    send_com_packet(soc_to_mid, send_pack, file_name)
+                    
         elif(pack[8] == 'rep'): # パケットが応答用
             if(pack[6] == 1):
                 file_name = str(rec_count)+rec_file_name
@@ -317,6 +359,7 @@ def relay_packet(connect_soc):
                 soc_to_cl = socket(AF_INET, SOCK_STREAM)
                 soc_to_cl.connect((cl_name, cl_port))  
                 soc_to_cl.send(sentence.encode())
+
                 if(pack[4] == 'GET'):
                     # ('sending file to',cl_name, file_name)
                     openfile(file_name, soc_to_cl)
