@@ -32,8 +32,8 @@ mid_port = 53601 # 中管理サーバのポート
 # ----- Route用設定-------------
 RouteTable = [] # 調べた経路を保存するリスト
 route_count = 0 
-address = ["pbl1","pbl2","pbl3","pbl4"] # ローカル環境のアドレス
-# baddress = ["pbl1a","pbl2a","pbl3a","pbl4a", "pbl5a","pbl6a","pbl7a"]
+#address = ["pbl1","pbl2","pbl3","pbl4"] # ローカル環境のアドレス
+address = ["pbl1a","pbl2a","pbl3a","pbl4a", "pbl5a","pbl6a","pbl7a"]
 ad_first = [] # 送信する1つめのホストはpingによって絞る
 
 # -------コマンド用設定------------
@@ -299,6 +299,7 @@ def routing_2host():
 # tpeの実行(Routeパケットの受け取り)
 def recv_Route_packet(TO_time):
     global route_count
+    global tmp
     for future in futures:
         try:
             # Routeの関数を並列実行
@@ -340,6 +341,9 @@ def SIZE_cmd(RouteTable):
         # -------SIZEコマンド応答の受け取り---------
         SIZE_sentence = rec_res(client_socket)
         # print('SIZE_sentence', SIZE_sentence)
+        if SIZE_sentence[0:2] == "NG":
+            print("check your filename and try again")
+            sys.exit( )
         data_size = load_data_size(SIZE_sentence)
         client_socket.close()
 
@@ -367,6 +371,9 @@ def SIZE_cmd(RouteTable):
         client_socket_recv.listen(6)
         connection_socket, addr = client_socket_recv.accept()
         SIZE_sentence = rec_res(connection_socket)
+        if SIZE_sentence[0:2] == "NG":
+            print("check your filename and try again")
+            sys.exit( )
         # print('SIZE_sentence', SIZE_sentence)
         data_size = load_data_size(SIZE_sentence) # データサイズの読み取り
         connection_socket.close()

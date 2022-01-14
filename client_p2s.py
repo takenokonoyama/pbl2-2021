@@ -318,6 +318,9 @@ def SIZE_cmd(RouteTable):
         # -------SIZEコマンド応答の受け取り---------
         SIZE_sentence = rec_res(client_socket)
         # print('SIZE_sentence', SIZE_sentence)
+        if SIZE_sentence[0:2] == "NG":
+            print("check your filename and try again")
+            sys.exit( )
         data_size = load_data_size(SIZE_sentence)
         client_socket.close()
 
@@ -340,6 +343,9 @@ def SIZE_cmd(RouteTable):
         # -------SIZEsentenceの受け取り---------
         # クライアント側にはSIZEコマンドの応答(string)が送られてくる
         SIZE_sentence = rec_res(client_socket)
+        if SIZE_sentence[0:2] == "NG":
+            print("check your filename and try again")
+            sys.exit( )
         # print('SIZE_sentence', SIZE_sentence)
         data_size = load_data_size(SIZE_sentence)
         client_socket.close()
