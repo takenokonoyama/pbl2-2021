@@ -32,8 +32,8 @@ mid_port = 53650 # 中管理サーバのポート
 # ----- Route用設定-------------
 RouteTable = [] # 調べた経路を保存するリスト
 route_count = 0 
-address = ["pbl1","pbl2","pbl3","pbl4"] # ローカル環境のアドレス
-#address = ["pbl1a","pbl2a","pbl3a","pbl4a", "pbl5a","pbl6a","pbl7a"]
+#address = ["pbl1","pbl2","pbl3","pbl4"] # ローカル環境のアドレス
+address = ["pbl1a","pbl2a","pbl3a","pbl4a", "pbl5a","pbl6a","pbl7a"]
 ad_first = [] # 送信する1つめのホストはpingによって絞る
 
 # -------コマンド用設定------------
