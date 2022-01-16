@@ -551,9 +551,10 @@ if __name__ == '__main__':
 
     # GETで送るルート選択
     # 何経路選択するか
-    if data_size < 100*1024: #1M以下のものは経路を三つ
+    RouteTables=RouteTable
+    if data_size < 1000*1024: #1M以下のものは経路を三つ
         max_route = 3 
-    elif data_size > 100*1024*3:#3M以上のものは経路を一つ
+    elif data_size > 1000*1024*3:#3M以上のものは経路を一つ
         max_route = 1
     else :
         max_route = 2 #その他のものは経路を二つ
@@ -585,3 +586,4 @@ if __name__ == '__main__':
     print('REP Command')
     end_time = REP_cmd(RouteTable,server_file_name)
     print(f'time {end_time - start_time}')
+    print(RouteTables)
