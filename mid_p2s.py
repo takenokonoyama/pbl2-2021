@@ -15,7 +15,7 @@ cl_port = 53602 # クライアントのポート番号
 
 # -------サーバ(転送管理サーバ)設定---------
 my_name = os.uname()[1] # 自身のサーバ名
-my_port =  53605 # 自身(転送管理サーバ)のポート
+my_port =  53606 # 自身(転送管理サーバ)のポート
 mid_port = my_port # 転送管理サーバのポートは共通
 server_name = '' # サーバ名
 server_port = 60623 # サーバポート
@@ -55,21 +55,21 @@ def Ping_mid(ad, p_loss_lim):
     # 正規表現'%'が後ろにつく[0,100]の数字を検索するための正規表現オブジェクトを生成
     regex = re.compile(r'\d{1,3}(?=%)') 
     # ping -c 10 -w 1000 adrress
-
+    
     ping = subprocess.run(
           ["ping", "-c", "20","-i", "0.2","-s","65507","-q", ad],
           stdout=subprocess.PIPE,     # 標準出力は判断のため保存
           stderr=subprocess.DEVNULL # 標準エラーは捨てる
-    )
-    
-    """
+    ) 
+   
+    """ 
     # ローカルデバック用
     ping = subprocess.run(
     ["ping", "-c", "10","-i", "0.2","-s","1000","-q", ad],
     stdout=subprocess.PIPE,     # 標準出力は判断のため保存
     stderr=subprocess.PIPE # 標準エラーは捨てる
-    ) 
-    """
+    )  """
+   
     output = ping.stdout.decode("cp932")
     # print(output)
 
@@ -244,12 +244,13 @@ def relay_packet(connect_soc):
                         # soc_to_cl = socket(AF_INET, SOCK_STREAM)
                         # soc_to_cl.connect((cl_name, cl_port))
                         send_packet(connect_soc, send_pack)
-                        
+                    
                     else:
                         mid_name = send_pack[send_pack[6]]
                         # soc_to_mid = socket(AF_INET, SOCK_STREAM)
                         # soc_to_mid.connect((mid_name, my_port))
                         send_packet(connect_soc, send_pack)
+    
     # ----コマンド用のパケットだった場合
     elif(pack[7] == 'Com'):
 
@@ -342,7 +343,7 @@ def main():
     # -----転送管理サーバを経由してサーバとクライアントの通信をする----  
     my_socket = socket(AF_INET, SOCK_STREAM) 
     my_socket.bind(('', my_port)) # 自身のポートをソケットに対応づける
-    my_socket.listen(10)
+    my_socket.listen(5)
 
     print('The server is ready to receive info packet')
 

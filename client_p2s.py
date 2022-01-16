@@ -16,17 +16,17 @@ import re
 # -----クライアント設定------------
 my_name = os.uname()[1]  # クライアントのホスト名あるいはIPアドレスを表す文字列
 my_port = 53602 # クライアントのポート
-my_port_route = 53670 # クライアントのポート(念のため)
-my_port_size = 53640 # クライアントのポート(size)
-my_port_get = 53639 # クライアントのポート(get)
-my_port_rep = 53638 # クライアントのポート(rep)
+my_port_route = 53617 # クライアントのポート(念のため)
+my_port_size = 53616 # クライアントのポート(size)
+my_port_get = 53615 # クライアントのポート(get)
+my_port_rep = 53614 # クライアントのポート(rep)
 
 # ---------サーバ(転送管理サーバ)設定-------------
 server_name = sys.argv[1] # サーバのホスト名
 server_port =  60623 # サーバのポート
 server_file_name = sys.argv[2] # サーバ側にあるファイル名
 mid_name = '' # 中間管理サーバの名前
-mid_port = 53605 # 中管理サーバのポート
+mid_port = 53606 # 中管理サーバのポート
 
 # ----- Route用設定-------------
 RouteTable = [] # 調べた経路を保存するリスト
@@ -180,14 +180,14 @@ def Ping(ad):
           stderr=subprocess.DEVNULL # 標準エラーは捨てる
     )
     
-    """
+    """ 
     # ローカルデバック用
     ping = subprocess.run(
     ["ping", "-c", "10","-i", "0.2","-s","1000","-q", ad],
     stdout=subprocess.PIPE,     # 標準出力は判断のため保存
     stderr=subprocess.PIPE # 標準エラーは捨てる
-    ) 
-    """
+    )  """
+   
     # pingの出力
     output = ping.stdout.decode("cp932")
     # print(output)
@@ -220,7 +220,7 @@ def Ping(ad):
 
 # すべてのホストにPing(並列処理)
 def Ping_AllHost():
-    with ThreadPoolExecutor(max_workers = 10) as executor:
+    with ThreadPoolExecutor(max_workers = 4) as executor:
         # tupleで受けとり
         route_info = list(executor.map(Ping, (ad for ad in address)))
     
@@ -286,7 +286,7 @@ def recv_Route_packet(TO_time):
                 ルーティング結果
                 Route = [指定した経路での累積rtt, クライアント名, 経由する1ホスト目, 経由する2ホスト目, サーバ]
                 '''
-                time_table.append((time, rep_info_pack[10]))
+                time_table.append((rep_info_pack[:3],time, rep_info_pack[10]))
                 Route = [rep_info_pack[10], rep_info_pack[0],rep_info_pack[1],\
                         rep_info_pack[2], rep_info_pack[3]]
                 # Routeテーブルに各経路でのルーティング結果を格納
@@ -360,6 +360,7 @@ def GET_part_send(client_socket, RouteTable, token_str, server_file_name, sep_da
         get_msg = GET_part(server_file_name, token_str, sep_data_s, sep_data_e)
         get_msg += '\n'
         client_socket.send(get_msg.encode())
+        print('sending server')
     else:
         # -------GETパケット要求の送信---------
         """
@@ -418,7 +419,7 @@ def GET_part_cmd(RouteTable, token_str, server_file_name, data_size):
         SumRatio += (1 / RouteTable[i][0])
 
     for i in range(0,len(RouteTable)):
-        if i == 0: 
+        if i == 0:
             separate_data_s=0
         else:
             separate_data_s=separate_data_e+1
@@ -525,17 +526,15 @@ if __name__ == '__main__':
     routing_1host() # 1ホスト経由のルーティング(関数をthread化)
     routing_2host() # 2ホスト経由のルーティング(関数をthread化)
     recv_Route_packet(TO_time) # threadの実行(パケットの受け取り)
-    print(time_table)
+    
+    print()
+    print('time_able:')
+    print(*time_table, sep='\n')
+    print()
     # ---------ダウンロードしたファイルをルーティングした経路で送信---------    
     print('------download file------')
     
     RouteTable = sorted(RouteTable) # timeによってソート
-    
-    if(len(RouteTable) >= 2):
-        tmp_RouteTable = RouteTable
-        RouteTable = []
-        for i in range(2):
-            RouteTable.append(tmp_RouteTable[i])
     
     print()
     print('sorted RouteTable:')
@@ -550,6 +549,14 @@ if __name__ == '__main__':
     print('data_size:',data_size)
     print()
 
+    # GETで送るルート選択
+    max_route = 1
+    if(len(RouteTable) >= max_route):
+        tmp_RouteTable = RouteTable
+        RouteTable = []
+        for i in range(max_route):
+            RouteTable.append(tmp_RouteTable[i])
+    
     print()
     print('GET Command')
     # print('my_port', my_port)
