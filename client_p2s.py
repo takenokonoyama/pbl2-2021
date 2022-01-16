@@ -563,7 +563,7 @@ if __name__ == '__main__':
                     max_route == 2
     #あまりにも二つ経路を採用した時に二つ目のTTLが悪い場合は経路を一つにする
     if max_route==2 and len(RouteTable) >= max_route:
-                if RouteTable[1][0]-RouteTable[0][0]<500:
+                if RouteTable[1][0]-RouteTable[0][0]>500:
                     max_route == 1
 
     if(len(RouteTable) >= max_route):
