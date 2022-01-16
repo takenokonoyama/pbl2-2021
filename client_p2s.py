@@ -550,7 +550,7 @@ if __name__ == '__main__':
     print()
 
     # GETで送るルート選択
-    max_route = 1
+    max_route = 1 # 何経路選択するか
     if(len(RouteTable) >= max_route):
         tmp_RouteTable = RouteTable
         RouteTable = []
