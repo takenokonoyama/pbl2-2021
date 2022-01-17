@@ -553,17 +553,20 @@ if __name__ == '__main__':
     # 何経路選択するか
     RouteTables=RouteTable
     if data_size < 1000*1024: #1M以下のものは経路を三つ
-        max_route = 3 
-    elif data_size > 1000*1024*3:#3M以上のものは経路を一つ
-        max_route = 1
-    else :
-        max_route = 2 #その他のものは経路を二つ
+        max_route = 4 
+    else:#1M以上のものは経路を2つ
+        max_route = 3
+
+    #あまりにも4つ採用した時に4つ目の経路のTTLが悪い場合は経路を3つにする
+    if max_route>=4 and len(RouteTable) >= max_route:
+                if 3*(RouteTable[2][0]-RouteTable[1][0])<(RouteTable[3][0]-RouteTable[2][0]):
+                    max_route == 3
     #あまりにも三つ採用した時に三つ目の経路のTTLが悪い場合は経路を二つにする
-    if max_route==3 and len(RouteTable) >= max_route:
+    if max_route>=3 and len(RouteTable) >= max_route:
                 if 3*(RouteTable[1][0]-RouteTable[0][0])<(RouteTable[2][0]-RouteTable[1][0]):
                     max_route == 2
     #あまりにも二つ経路を採用した時に二つ目のTTLが悪い場合は経路を一つにする
-    if max_route==2 and len(RouteTable) >= max_route:
+    if max_route>=2 and len(RouteTable) >= max_route:
                 if RouteTable[1][0]-RouteTable[0][0]>500:
                     max_route == 1
 
