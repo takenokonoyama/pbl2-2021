@@ -563,15 +563,15 @@ if __name__ == '__main__':
 
     #あまりにも4つ採用した時に4つ目の経路のTTLが悪い場合は経路を3つにする
     if max_route>=4 and len(RouteTable) >= max_route:
-                if 3*(RouteTable[2][0]-RouteTable[1][0])<(RouteTable[3][0]-RouteTable[2][0]):
+                if 2*(RouteTable[2][0]-RouteTable[1][0])<(RouteTable[3][0]-RouteTable[2][0]):
                     max_route = 3
     #あまりにも三つ採用した時に三つ目の経路のTTLが悪い場合は経路を二つにする
     if max_route>=3 and len(RouteTable) >= max_route:
-                if 3*(RouteTable[1][0]-RouteTable[0][0])<(RouteTable[2][0]-RouteTable[1][0]):
+                if 2*(RouteTable[1][0]-RouteTable[0][0])<(RouteTable[2][0]-RouteTable[1][0]):
                     max_route = 2
     #あまりにも二つ経路を採用した時に二つ目のTTLが悪い場合は経路を一つにする
-    if max_route>=2 and len(RouteTable) >= max_route:
-                if RouteTable[1][0]-RouteTable[0][0]>700:
+    if max_route>=2 and len(RouteTable) >= max_route and data_size > 1000*1024*1:
+                if RouteTable[1][0]-RouteTable[0][0]>400:
                     max_route = 1
 
     if(len(RouteTable) >= max_route):
