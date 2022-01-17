@@ -554,7 +554,9 @@ if __name__ == '__main__':
     RouteTables=RouteTable
     if data_size < 1000*1024: #1M以下のものは経路を三つ
         max_route = 4 
-    else:#1M以上のものは経路を2つ
+    elif data_size > 1000*1024*3:#3M以上のものは経路を1つ
+        max_route = 1
+    else:#その他のものは経路を2つ
         max_route = 3
 
     #あまりにも4つ採用した時に4つ目の経路のTTLが悪い場合は経路を3つにする
